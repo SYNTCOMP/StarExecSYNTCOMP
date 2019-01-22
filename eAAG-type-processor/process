@@ -1,0 +1,16 @@
+#!/bin/bash
+# AUTHOR: Guillermo A. Perez
+# DESCRIPTION: The benchmark processor for .aag benchmarks
+# arg1 = the absolute path to the benchmark file
+ 
+# Here we perform basic validation: we call the good ol' syntax checker
+python "syntax_check.py" $1
+exit_code=$?
+if [[ $exit_code == 0 ]]; then
+    echo "starexec-valid=true"
+else
+    echo "starexec-valid=false"
+fi
+
+# Here we process the rest of the benchmark metadata
+python "print_metadata.py" $1
