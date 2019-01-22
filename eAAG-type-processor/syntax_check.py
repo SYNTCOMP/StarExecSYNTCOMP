@@ -84,7 +84,22 @@ def get_non_control_definitions(control_inputs, spec_lines):
     return non_control_definitions
 
 
+def check_valid_metadata(spec_lines):
+    in_comment = False
+    for l in spec_lines:
+        if '#!SYNTCOMP' in l:
+            assert not in_comment, 'Invalid nesting of metadata labels'
+            in_comment = True
+            continue
+        elif '#.' in l:
+            assert in_comment, 'Metadata end-label does not have a start'
+            in_comment = False
+            continue
+    assert not in_comment, 'Metadata labels not closed'
+
+
 def main(original_lines):
+    check_valid_metadata(original_lines)
     orig_all_inputs = get_inputs(original_lines)
     orig_control_inputs = get_control_inputs(original_lines)
     orig_non_control_inputs = orig_all_inputs.difference(orig_control_inputs)

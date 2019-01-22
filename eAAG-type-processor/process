@@ -8,9 +8,9 @@ python "syntax_check.py" $1
 exit_code=$?
 if [[ $exit_code == 0 ]]; then
     echo "starexec-valid=true"
+
+    # If the syntax is valid, we process the benchmark metadata
+    python "print_metadata.py" $1
 else
     echo "starexec-valid=false"
 fi
-
-# Here we process the rest of the benchmark metadata
-python "print_metadata.py" $1
