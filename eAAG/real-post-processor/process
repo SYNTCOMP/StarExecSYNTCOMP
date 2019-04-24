@@ -2,18 +2,19 @@
 # AUTHOR: Guillermo A. Perez
 # DESCRIPTION: The post-processor for realizability tools on .aag benchmarks
 #              (Based on Jens Kreber's SyntVerify)
-# arg1 = the solver's output
+# arg1 = the solver's output (which StarExec saves to a file!, so this is a
+#        a file path too)
 # arg2 = the absolute path to the benchmark file
 
 syntf="$1"
 origf="$2"
 
-if [ -z "$syntf" ]; then
-    echo "Error=No output from the solver"
-    exit
+if [ ! -f "$syntf" ]; then
+    echo "Error=No output file found!"
+    exit $NO_OUTPUT
 fi
 
-syntline=$(grep -s -n "^#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
+syntline=$(grep -n "^#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
 if [ -z "$syntline" ]; then
 	status="unknown"
 else
@@ -23,38 +24,36 @@ fi
 echo "Expected_result=$status"
 
 # Check realizability
-if [[ $syntf == UNREALIZABLE* ]]; then
-    echo "starexec-result=UNREALIZABLE"
-    case "$status" in
-	"realizable")
-	    echo "Error=Realizable not recognized"
+if (grep -i -q $'.*\tUNREALIZABLE' "$syntf"); then  # the $'...'
+    case "$status" in                               # results in \t being
+	"realizable")                                   # correctly interpreted
+        echo "starexec-result=false-negative"
 	    exit 
 	    ;;
 	"unrealizable")
-        # correct
+        echo "starexec-result=UNREALIZABLE"
 	    exit
 	    ;;
 	"unknown")
-	    echo "Warning=Status is unknown, the output was UNREALIZABLE"
+        echo "starexec-result=NEW-UNREALIZABLE"
 	    exit
 	    ;;
 	*)
 	    echo "Error=Incorrect status value."
 	    exit
     esac
-elif [[ $syntf == REALIZABLE* ]]; then
-    echo "starexec-result=REALIZABLE"
+elif (grep -i -q $'.*\tREALIZABLE' "$syntf"); then
     case "$status" in
 	"realizable")
-		# correct
+        echo "starexec-result=REALIZABLE"
 		exit
 	    ;;
 	"unrealizable")
-	    echo "Error=Unrealizable not recognized"
+        echo "starexec-result=false-positive"
 	    exit 
 	    ;;
 	"unknown")
-		echo "Warning=Status is unknown, the output was REALIZABLE"
+        echo "starexec-result=NEW-REALIZABLE"
 		exit 
 	    ;;
 	*)
