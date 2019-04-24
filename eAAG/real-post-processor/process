@@ -1,0 +1,67 @@
+#!/bin/bash
+# AUTHOR: Guillermo A. Perez
+# DESCRIPTION: The post-processor for realizability tools on .aag benchmarks
+#              (Based on Jens Kreber's SyntVerify)
+# arg1 = the solver's output
+# arg2 = the absolute path to the benchmark file
+
+syntf="$1"
+origf="$2"
+
+if [ ! -f "$syntf" ]; then
+    echo "Error=No output file found!\n"
+    exit
+fi
+
+syntline=$(grep -n "^#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
+if [ -z "$syntline" ]; then
+	status="unknown"
+else
+    synttag=$(tail -n +$syntline "$origf")
+    status=$(grep "STATUS[[:space:]]*:" <<< "$synttag" | cut -d ':' -f 2 | sed "s/ //g")
+fi
+echo "Expected_result=$status\n"
+
+# Check realizability
+if (grep -i -q "^UNREALIZABLE" "$syntf"); then
+    echo "starexec-result=UNREALIZABLE"
+    case "$status" in
+	"realizable")
+	    echo "Error=Realizable not recognized\n"
+	    exit 
+	    ;;
+	"unrealizable")
+        # correct
+	    exit
+	    ;;
+	"unknown")
+	    echo "Warning=Status is unknown, the output was UNREALIZABLE\n"
+	    exit
+	    ;;
+	*)
+	    echo "Error=Incorrect status value.\n"
+	    exit
+    esac
+elif (grep -i -q "^REALIZABLE" "$syntf"); then
+    echo "starexec-result=REALIZABLE"
+    case "$status" in
+	"realizable")
+		# correct
+		exit
+	    ;;
+	"unrealizable")
+	    echo "Error=Unrealizable not recognized\n"
+	    exit 
+	    ;;
+	"unknown")
+		echo "Warning=Status is unknown, the output was REALIZABLE\n"
+		exit 
+	    ;;
+	*)
+	    echo "Error=Incorrect status value.\n"
+	    exit
+    esac
+fi
+
+echo "Error=Found nor REALIZABLE nor UNREALIZABLE\n"
+exit 
