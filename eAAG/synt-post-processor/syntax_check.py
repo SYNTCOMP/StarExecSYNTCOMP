@@ -103,23 +103,41 @@ def check_valid_metadata(spec_lines):
     assert not in_comment, 'Metadata labels not closed'
 
 
-def main(original_lines):
+def main(original_lines, synthesized_lines):
     check_valid_metadata(original_lines)
     orig_all_inputs = get_inputs(original_lines)
     orig_control_inputs = get_control_inputs(original_lines)
     orig_uncontrol_inputs = orig_all_inputs.difference(orig_control_inputs)
-    nof_inputs, nof_outputs = parse_header(original_lines)
+    onof_inputs, onof_outputs = parse_header(original_lines)
 
-    assert nof_outputs == 1, \
+    assert onof_outputs == 1, \
         'More than one output defined!'
     assert orig_uncontrol_inputs, \
         'There are no uncontrollable inputs!'
     assert orig_control_inputs, \
         'There are no controllable inputs!'
 
+    # loading information about the synthesis output
+    check_valid_metadata(synthesized_lines)
+    synthd_all_inputs = get_inputs(synthesized_lines)
+    synthd_control_inputs = get_control_inputs(synthesized_lines)
+    synthd_uncontrol_inputs = \
+        synthd_all_inputs.difference(synthd_control_inputs)
+    snof_inputs, snof_outputs = parse_header(synthesized_lines)
+
+    assert snof_outputs == 1, \
+        'More than one output defined!'
+    assert synthd_uncontrol_inputs, \
+        'There are no uncontrollable inputs!'
+    assert len(synthd_uncontrol_inputs) == len(orig_uncontrol_inputs), \
+        'The no. of uncontrollable inputs does not match after synthesis'
+    assert synthd_control_inputs == 0, \
+        'There are controllable inputs left!'
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('original', type=FileType())
+    parser.add_argument('synthesized', type=FileType())
     args = parser.parse_args(sys.argv[1:])
-    main(list(args.original.readlines()))
+    main(list(args.original.readlines()), list(args.synthesized.readlines()))

@@ -62,5 +62,5 @@ elif (grep -i -q $'.*\tREALIZABLE' "$syntf"); then
     esac
 fi
 
-echo "Error=Found nor REALIZABLE nor UNREALIZABLE"
+echo "Error=Found neither REALIZABLE nor UNREALIZABLE"
 exit 
