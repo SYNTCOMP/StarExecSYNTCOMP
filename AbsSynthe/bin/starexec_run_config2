@@ -1,8 +1,7 @@
 #!/bin/bash
-DIR=`dirname $0`/
 # This configuration allows to synthesize a controller
 # $1 contains the input filename (the name of the AIGER-file).
-COMMAND="${DIR}binary/abssynthe $1 -o $1-result.aag"
+COMMAND="./abssynthe $1 -o $1-result.aag"
 $COMMAND
 res=$?
 if [[ $res == 10 ]]; then

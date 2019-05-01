@@ -131,7 +131,7 @@ def main(original_lines, synthesized_lines):
         'There are no uncontrollable inputs!'
     assert len(synthd_uncontrol_inputs) == len(orig_uncontrol_inputs), \
         'The no. of uncontrollable inputs does not match after synthesis'
-    assert synthd_control_inputs == 0, \
+    assert len(synthd_control_inputs) == 0, \
         'There are controllable inputs left!'
 
 
