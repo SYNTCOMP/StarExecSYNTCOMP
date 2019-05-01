@@ -68,22 +68,35 @@ else
     exit
 fi
 
-# Check synt
+# Check synthesized file
 aagline=$(grep -n $'.*\taag ' "$syntf" | head -n 1 | cut -d ':' -f 1)
 if [ -z "$aagline" ]; then
     echo "Error=Could not find aag header."
 fi
 # we put all the aag-file lines (without the timestamp) in a file
-tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}.aag"
-python "syntax_check.py" "$origf" "${syntf}.aag"
+# however, if there is a winning-region section, we put that into 
+# yet another file
+# IMPORTANT: we keep the lines without the timestamp
+wregion=$(grep -n $'.*\tWINNING_REGION' "$syntf" | head -n 1 | cut -d ':' -f 1)
+if [ -z "$wregion" ]; then
+    tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}-prod.aag"
+else
+    beforewr=$((wregion-1))
+    sed -n "${aagline},${beforewr}"$'s/.*\t//p' "$syntf" > "${syntf}-prod.aag"
+    tail -n +"$wregion" "$syntf" | sed $'s/.*\t//' > "${syntf}-wregion.aag"
+fi
+python "syntax_check.py" "$origf" "${syntf}-prod.aag"
 res=$?
 if [ ! "$res" -eq 0 ]; then
     echo "Error=Output file is NOT OK syntactically."
+    exit
 fi
 
 # Model checking
+# TODO: if the winning region was given, try to use it before defaulting to
+# iimc
 ulimit -t "$modelchecking_time"
-check_res=$($modelchecker "${syntf}.aag")
+check_res=$($modelchecker "${syntf}-prod.aag")
 res_val=$?
 check_res_last=$(tail -n 1 <<< "$check_res")
 if [[ "$check_res_last" =~ ^0$ ]];  then
@@ -98,7 +111,7 @@ fi
 
 # Determining circuit size
 size_orig=$(head -n 1 "$origf" | cut -d ' ' -f 6)
-size_synt=$(head -n 1 "${syntf}.aag" | cut -d ' ' -f 6)
+size_synt=$(head -n 1 "${syntf}-prod.aag" | cut -d ' ' -f 6)
 
 echo "Input_circuit_size=$size_orig"
 echo "Output_circuit_size=$size_synt"
