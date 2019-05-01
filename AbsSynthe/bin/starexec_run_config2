@@ -1,12 +1,12 @@
 #!/bin/bash
 # This configuration allows to synthesize a controller
 # $1 contains the input filename (the name of the AIGER-file).
-COMMAND="./abssynthe $1 -o $1-result.aag"
+COMMAND="./abssynthe $1 -o output/out.aag"
 $COMMAND
 res=$?
 if [[ $res == 10 ]]; then
     echo "REALIZABLE"
-    cat "$1-result.aag"
+    cat "output/out.aag"
 else
     echo "UNREALIZABLE"
 fi
