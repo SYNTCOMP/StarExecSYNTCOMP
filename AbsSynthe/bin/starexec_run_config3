@@ -1,10 +1,9 @@
 #!/bin/bash
-DIR=`dirname $0`/
 # This configuration allows to synthesize a controller.
 # Additionally, it outputs the winning region as a certificate
 # of correctness.
 # $1 contains the input filename (the name of the AIGER-file).
-COMMAND="${DIR}binary/abssynthe $1 -o $1-result.aag -w $1-wregion.aag"
+COMMAND="./abssynthe $1 -o $1-result.aag -w $1-wregion.aag"
 $COMMAND
 res=$?
 if [[ $res == 10 ]]; then
