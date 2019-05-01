@@ -1,11 +1,13 @@
 #!/bin/bash
-# This configuration allows to check (un)realizability only
+DIR=`dirname $0`/
+# This configuration allows to synthesize a controller
 # $1 contains the input filename (the name of the AIGER-file).
-COMMAND="./abssynthe $1"
+COMMAND="${DIR}binary/abssynthe $1 -o $1-result.aag"
 $COMMAND
 res=$?
 if [[ $res == 10 ]]; then
     echo "REALIZABLE"
+    cat "$1-result.aag"
 else
     echo "UNREALIZABLE"
 fi
