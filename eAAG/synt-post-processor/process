@@ -83,7 +83,8 @@ if [ -z "$wregion" ]; then
 else
     beforewr=$((wregion-1))
     sed -n "${aagline},${beforewr}"$'s/.*\t//p' "$syntf" > "${syntf}-prod.aag"
-    tail -n +"$wregion" "$syntf" | sed $'s/.*\t//' > "${syntf}-wregion.aag"
+    afterwr=$((wregion+1))
+    tail -n +"${afterwr}" "$syntf" | sed $'s/.*\t//' > "${syntf}-wregion.aag"
 fi
 python "syntax_check.py" "$origf" "${syntf}-prod.aag"
 res=$?
@@ -93,20 +94,37 @@ if [ ! "$res" -eq 0 ]; then
 fi
 
 # Model checking
-# TODO: if the winning region was given, try to use it before defaulting to
-# iimc
-ulimit -t "$modelchecking_time"
-check_res=$($modelchecker "${syntf}-prod.aag")
-res_val=$?
-check_res_last=$(tail -n 1 <<< "$check_res")
-if [[ "$check_res_last" =~ ^0$ ]];  then
-    echo "Model_check_result=SUCCESS"
-elif [[ $res_val == 137 || $res_val == 152 || $res_val == 143 ]]; then  # Killed or stopped
-    echo "Model_check_result=TIMEOUT"
-    exit
-else
-    echo "Error=model checking failed, iimc output: $check_res"
-    exit
+checked=""
+if [ ! -z "$wregion" ]; then
+    cd AigSyn
+    ulimit -t "$modelchecking_time"
+    check_res=$(python CompetitionTest.py "../${syntf}-prod.aag" "../${syntf}-wregion.aag")
+    res_val=$?
+    if [[ $check_res == *"True"* ]]; then
+        checked=1
+        echo "Model_check_result=SUCCESS"
+    elif [[ $check_res == *"False"* ]]; then
+        echo "Error=model checking failed, ${res_val}: $check_res"
+        exit
+    fi
+    cd ..
+fi
+
+# defaulting to iimc
+if [ -z "$checked" ]; then
+    ulimit -t "$modelchecking_time"
+    check_res=$($modelchecker "${syntf}-prod.aag")
+    res_val=$?
+    check_res_last=$(tail -n 1 <<< "$check_res")
+    if [[ "$check_res_last" =~ ^0$ ]];  then
+        echo "Model_check_result=SUCCESS"
+    elif [[ $res_val == 137 || $res_val == 152 || $res_val == 143 ]]; then  # Killed or stopped
+        echo "Model_check_result=TIMEOUT"
+        exit
+    else
+        echo "Error=model checking failed, iimc output: $check_res"
+        exit
+    fi
 fi
 
 # Determining circuit size
