@@ -23,7 +23,7 @@ syntline=$(grep -n "^#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
 if [ -z "$syntline" ]; then
 	status="unknown"
 else
-    synttag=$(tail -n +$syntline "$origf")
+    synttag=$(tail -n +"$syntline" "$origf")
     status=$(grep "STATUS[[:space:]]*:" <<< "$synttag" | cut -d ':' -f 2 | sed "s/ //g")
 fi
 echo "Expected_result=$status"
