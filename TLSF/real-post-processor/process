@@ -1,7 +1,7 @@
 #!/bin/bash
 # AUTHOR: Guillermo A. Perez
-# DESCRIPTION: The post-processor for realizability tools on .aag benchmarks
-#              (Based on Jens Kreber's SyntVerify)
+# DESCRIPTION: The post-processor for realizability tools on .tlsf benchmarks
+#              (Based on Jens Kreber's script)
 # arg1 = the solver's output (which StarExec saves to a file!, so this is a
 #        a file path too)
 # arg2 = the absolute path to the benchmark file
@@ -14,11 +14,11 @@ if [ ! -f "$syntf" ]; then
     exit
 fi
 
-syntline=$(grep -n "^#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
+syntline=$(grep -n "^[[:space:]]*//[[:space:]]*#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
 if [ -z "$syntline" ]; then
 	status="unknown"
 else
-    synttag=$(tail -n +$syntline "$origf")
+    synttag=$(tail -n +"$syntline" "$origf")
     status=$(grep "STATUS[[:space:]]*:" <<< "$synttag" | cut -d ':' -f 2 | sed "s/ //g")
 fi
 echo "Expected_result=$status"

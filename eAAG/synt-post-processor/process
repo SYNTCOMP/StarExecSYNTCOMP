@@ -32,7 +32,7 @@ echo "Expected_result=$status"
 if (grep -i -q $'.*\tUNREALIZABLE' "$syntf"); then  # the $'...'
     case "$status" in                               # results in \t being
 	"realizable")                                   # correctly interpreted
-        echo "starexec-result=false-negative"
+        echo "Error=false negative"
 	    exit 
 	    ;;
 	"unrealizable")
@@ -44,7 +44,7 @@ if (grep -i -q $'.*\tUNREALIZABLE' "$syntf"); then  # the $'...'
 	    exit
 	    ;;
 	*)
-	    echo "Error=Incorrect status value."
+	    echo "Error=Unkown status value"
 	    exit
     esac
 elif (grep -i -q $'.*\tREALIZABLE' "$syntf"); then
@@ -53,14 +53,14 @@ elif (grep -i -q $'.*\tREALIZABLE' "$syntf"); then
         # do not exit! we have to model check this
 	    ;;
 	"unrealizable")
-        echo "starexec-result=false-positive"
+        echo "Error=false positive"
 	    exit 
 	    ;;
 	"unknown")
         # do not exit! we have to model check this
 	    ;;
 	*)
-	    echo "Error=Incorrect status value."
+	    echo "Error=Unkown status value"
 	    exit
     esac
 else
