@@ -1,0 +1,130 @@
+#!/bin/bash
+# AUTHOR: Guillermo A. Perez
+# DESCRIPTION: The post-processor for synthesis tools on .aag benchmarks
+#              (Based on Jens Kreber's script)
+# arg1 = the solver's output (which StarExec saves to a file!, so this is a
+#        a file path too)
+# arg2 = the absolute path to the benchmark file
+
+syntf="$1"
+origf="$2"
+
+# tuning and global parameters
+modelchecking_time=14400 # for 4 cores = 3600*4
+
+if [ ! -f "$syntf" ]; then
+    echo "Error=No output file found!"
+    exit
+fi
+
+syntline=$(grep -n "^#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
+if [ -z "$syntline" ]; then
+	status="unknown"
+else
+    synttag=$(tail -n +$syntline "$origf")
+    status=$(grep "STATUS[[:space:]]*:" <<< "$synttag" | cut -d ':' -f 2 | sed "s/ //g")
+fi
+echo "Expected_result=$status"
+
+# Check realizability
+if (grep -i -q $'.*\tUNREALIZABLE' "$syntf"); then  # the $'...'
+    case "$status" in                               # results in \t being
+	"realizable")                                   # correctly interpreted
+        echo "starexec-result=false-negative"
+	    exit 
+	    ;;
+	"unrealizable")
+        echo "starexec-result=UNREALIZABLE"
+	    exit
+	    ;;
+	"unknown")
+        echo "starexec-result=NEW-UNREALIZABLE"
+	    exit
+	    ;;
+	*)
+	    echo "Error=Incorrect status value."
+	    exit
+    esac
+elif (grep -i -q $'.*\tREALIZABLE' "$syntf"); then
+    case "$status" in
+	"realizable")
+        # do not exit! we have to model check this
+	    ;;
+	"unrealizable")
+        echo "starexec-result=false-positive"
+	    exit 
+	    ;;
+	"unknown")
+        # do not exit! we have to model check this
+	    ;;
+	*)
+	    echo "Error=Incorrect status value."
+	    exit
+    esac
+else
+    echo "Error=Found neither REALIZABLE nor UNREALIZABLE"
+    exit
+fi
+
+# Check synthesized file
+aagline=$(grep -n $'.*\taag ' "$syntf" | head -n 1 | cut -d ':' -f 1)
+if [ -z "$aagline" ]; then
+    echo "Error=Could not find aag header."
+fi
+
+# we put all the aag-file lines (without the timestamp) in a file
+# IMPORTANT: we keep the lines without the timestamp
+tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}.aag"
+
+# Generate monitor
+syfco --format smv "$origf" -m fully | smvtoaig > "monitor.aag" 2> /dev/null
+combine-aiger "monitor.aag" "${syntf}.aag" > "${syntf}-combined.aag"
+if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
+    echo "Error=during monitor combination"
+    exit
+fi
+aigtoaig "${syntf}-combined.aag" "${syntf}-combined.aig"
+
+# Model checking
+ulimit -t "$modelchecking_time"
+check_res=$("$modelchecker" "${syntf}-combined.aig")
+res_val=$?
+check_res_first=$(head -n 1 <<< "$check_res")
+if [[ "$check_res_first" =~ ^0$ ]];  then
+    echo "Model_check_result=SUCCESS"
+elif [[ $res_val == 137 || $res_val == 152 || $res_val == 143 ]]; then  # Killed or stopped
+    echo "Model_check_result=TIMEOUT"
+    exit
+else
+    echo "Error=model checking failed, v3 output: $check_res"
+    exit
+fi
+
+
+## (Reference) circuit size
+size_latches=$(head -n 1 "${syntf}.aag" | cut -d ' ' -f 4)
+size_ands=$(head -n 1 "${syntf}.aag" | cut -d ' ' -f 6)
+
+echo "Synthesis_latches=$size_latches"
+echo "Synthesis_gates=$size_ands"
+
+size_synt=$(($size_latches + $size_ands))
+size_ref=$(grep "REF_SIZE[[:space:]]*:" <<< "$synttag" | cut -d ':' -f 2 | sed "s/ //g")
+
+
+if [ -n "$size_ref" ]; then
+    diff_ref=$((size_synt - size_ref))
+    if [ ! "$size_ref" -eq 0 ]; then
+	outbyref=$(echo -e "scale=5\n$size_synt / $size_ref\n" | bc -l | sed 's/^\./0./')
+    fi
+    echo "Difference_to_reference=$diff_ref"
+    echo "Output_by_reference=$outbyref"
+fi
+
+if [ "$status" == "unknown" ]; then
+    echo "starexec-result=NEW-REALIZABLE"
+    exit
+else
+    echo "starexec-result=REALIZABLE"
+    exit
+fi

@@ -3,14 +3,14 @@
 # Additionally, it outputs the winning region as a certificate
 # of correctness.
 # $1 contains the input filename (the name of the AIGER-file).
-COMMAND="./abssynthe $1 -o output/out.aag -w output/wregion.aag"
+COMMAND="./abssynthe $1 -o result.aag -w wregion.aag"
 $COMMAND
 res=$?
 if [[ $res == 10 ]]; then
     echo "REALIZABLE"
-    cat "output/out.aag"
+    cat "result.aag"
     echo "WINNING_REGION"
-    cat "output/wregion.aag"
+    cat "wregion.aag"
 else
     echo "UNREALIZABLE"
 fi

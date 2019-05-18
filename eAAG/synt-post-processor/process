@@ -11,12 +11,12 @@ origf="$2"
 
 # tuning and global parameters
 modelchecking_time=3600
-modelchecker=iimc
+modelchecker=./iimc
 
 
 if [ ! -f "$syntf" ]; then
     echo "Error=No output file found!"
-    exit $NO_OUTPUT
+    exit
 fi
 
 syntline=$(grep -n "^#!SYNTCOMP" "$origf" | head -n 1 | cut -d ':' -f 1)
@@ -72,6 +72,7 @@ fi
 aagline=$(grep -n $'.*\taag ' "$syntf" | head -n 1 | cut -d ':' -f 1)
 if [ -z "$aagline" ]; then
     echo "Error=Could not find aag header."
+    exit
 fi
 # we put all the aag-file lines (without the timestamp) in a file
 # however, if there is a winning-region section, we put that into 
