@@ -1,0 +1,1 @@
+A reactive synthesis solver included within the Spot package
