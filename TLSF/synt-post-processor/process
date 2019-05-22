@@ -75,17 +75,31 @@ fi
 
 # we put all the aag-file lines (without the timestamp) in a file
 # IMPORTANT: we keep the lines without the timestamp
-tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}.aag"
+eofline=$(grep -n $'.*\tEOF' "$syntf" | head -n 1 | cut -d ':' -f 1)
+# if the file is ended with a EOF marker we remove that too
+# (F&#@ StarExec adds the EOF, so this is important!)
+if [ -z "$eofline" ]; then
+    tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}-sol.aag"
+else
+    beforeeof=$((eofline-1))
+    sed -n "${aagline},${beforeeof}"$'s/.*\t//p' "$syntf" > "${syntf}-sol.aag"
+fi
+
+if [ ! -f "${syntf}-sol.aag" ]; then
+    echo "Error=The clean solution file was not generated!"
+    exit
+fi
 
 # Generate monitor
-./syfco --format smv "$origf" --mode fully | ./smvtoaig -L ./ltl2smv > "monitor.aag" 2> /dev/null
+./syfco --format smv "$origf" --mode fully | ./smvtoaig -L ./ltl2smv > "monitor.aag"
 
 if [ ! -f "monitor.aag" ]; then
     echo "Error=The monitor file was not generated!"
     exit
 fi
 
-./combine-aiger "monitor.aag" "${syntf}.aag" > "${syntf}-combined.aag"
+# Combine monitor with synthesized file
+./combine-aiger "monitor.aag" "${syntf}-sol.aag" > "${syntf}-combined.aag"
 
 if [ ! -f "${syntf}-combined.aag" ]; then
     echo "Error=The combined file was not generated!"
@@ -93,11 +107,9 @@ if [ ! -f "${syntf}-combined.aag" ]; then
 fi
 
 if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
-    combined_first=$(head -n 2 "${syntf}-combined.aag")
-    echo "Error=during monitor combination, got ${combined_first}"
+    echo "Error=during monitor combination"
     exit
 fi
-#./aigtoaig "${syntf}-combined.aag" "${syntf}-combined.aig"
 
 # Model checking
 ulimit -t "$modelchecking_time"
@@ -116,8 +128,8 @@ fi
 
 
 ## (Reference) circuit size
-size_latches=$(head -n 1 "${syntf}.aag" | cut -d ' ' -f 4)
-size_ands=$(head -n 1 "${syntf}.aag" | cut -d ' ' -f 6)
+size_latches=$(head -n 1 "${syntf}-sol.aag" | cut -d ' ' -f 4)
+size_ands=$(head -n 1 "${syntf}-sol.aag" | cut -d ' ' -f 6)
 
 echo "Synthesis_latches=$size_latches"
 echo "Synthesis_gates=$size_ands"
