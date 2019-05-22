@@ -4,4 +4,4 @@
 LTL=$(./syfco $1 --format ltlxba --mode fully)
 IN=$(./syfco $1 --print-input-signals)
 OUT=$(./syfco $1 --print-output-signals)
-./ltlsynt --formula="$LTL" --ins="$IN" --outs="$OUT" --aiger
+./ltlsynt --formula="$LTL" --ins="$IN" --outs="$OUT" --realizability
