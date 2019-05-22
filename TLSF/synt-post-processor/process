@@ -79,11 +79,21 @@ tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}.aag"
 
 # Generate monitor
 ./syfco --format smv "$origf" --mode fully | ./smvtoaig -L ./ltl2smv > "monitor.aag" 2> /dev/null
-cat "monitor.aag"
+
+if [ ! -f "monitor.aag" ]; then
+    echo "Error=The monitor file was not generated!"
+    exit
+fi
+
 ./combine-aiger "monitor.aag" "${syntf}.aag" > "${syntf}-combined.aag"
-cat "${syntf}-combined.aag"
+
+if [ ! -f "${syntf}-combined.aag" ]; then
+    echo "Error=The combined file was not generated!"
+    exit
+fi
+
 if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
-    combined_first=$(head -n 1 "${syntf}-combined.aag")
+    combined_first=$(head -n 2 "${syntf}-combined.aag")
     echo "Error=during monitor combination, got ${combined_first}"
     exit
 fi
