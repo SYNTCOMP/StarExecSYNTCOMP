@@ -78,7 +78,7 @@ fi
 tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}.aag"
 
 # Generate monitor
-./syfco --format smv "$origf" -m fully | ./smvtoaig > "monitor.aag" -L ./ltl2smv 2> /dev/null
+./syfco --format smv "$origf" --mode fully | ./smvtoaig -L ./ltl2smv > "monitor.aag" 2> /dev/null
 ./combine-aiger "monitor.aag" "${syntf}.aag" > "${syntf}-combined.aag"
 if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
     combined_first=$(head -n 1 "${syntf}-combined.aag")
