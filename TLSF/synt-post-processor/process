@@ -78,27 +78,26 @@ fi
 tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}.aag"
 
 # Generate monitor
-./syfco --format smv "$origf" -m fully | ./smvtoaig > "monitor.aag" -L ./ltl2smv
+./syfco --format smv "$origf" -m fully | ./smvtoaig > "monitor.aag" -L ./ltl2smv 2> /dev/null
 ./combine-aiger "monitor.aag" "${syntf}.aag" > "${syntf}-combined.aag"
 if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
     echo "Error=during monitor combination, got ${combined_first}"
     exit
 fi
-echo "compressing aig"
 ./aigtoaig "${syntf}-combined.aag" "${syntf}-combined.aig"
 
 # Model checking
 ulimit -t "$modelchecking_time"
-check_res=$(./v3 "${syntf}-combined.aig")
+check_res=$(./iimc "${syntf}-combined.aig")
 res_val=$?
-check_res_first=$(head -n 1 <<< "$check_res")
-if [[ "$check_res_first" =~ ^0$ ]];  then
+check_res_last=$(tail -n 1 <<< "$check_res")
+if [[ "$check_res_last" =~ ^0$ ]];  then
     echo "Model_check_result=SUCCESS"
 elif [[ $res_val == 137 || $res_val == 152 || $res_val == 143 ]]; then  # Killed or stopped
     echo "Model_check_result=TIMEOUT"
     exit
 else
-    echo "Error=model checking failed, v3 output: $check_res"
+    echo "Error=model checking failed, iimc output: $check_res"
     exit
 fi
 
