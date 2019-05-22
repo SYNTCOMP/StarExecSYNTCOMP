@@ -78,12 +78,13 @@ fi
 tail -n +"$aagline" "$syntf" | sed $'s/.*\t//' > "${syntf}.aag"
 
 # Generate monitor
-./syfco --format smv "$origf" -m fully | ./smvtoaig > "monitor.aag"
+./syfco --format smv "$origf" -m fully | ./smvtoaig > "monitor.aag" -L ./ltl2smv
 ./combine-aiger "monitor.aag" "${syntf}.aag" > "${syntf}-combined.aag"
 if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
     echo "Error=during monitor combination, got ${combined_first}"
     exit
 fi
+echo "compressing aig"
 ./aigtoaig "${syntf}-combined.aag" "${syntf}-combined.aig"
 
 # Model checking
