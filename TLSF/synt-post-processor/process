@@ -113,7 +113,7 @@ fi
 
 # Model checking
 ulimit -t "$modelchecking_time"
-check_res=$(./iimc "${syntf}-combined.aag")
+check_res=$(./iimc -t fork -t fair -t klive -t fcbmc -t join "${syntf}-combined.aag")
 res_val=$?
 check_res_last=$(tail -n 1 <<< "$check_res")
 if [[ "$check_res_last" =~ ^0$ ]];  then
