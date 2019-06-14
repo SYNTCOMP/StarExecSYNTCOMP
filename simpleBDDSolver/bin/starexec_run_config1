@@ -1,0 +1,5 @@
+#!/bin/bash
+# This configuration allows to check (un)realizability only
+# $1 contains the input filename (the name of the AIGER-file).
+COMMAND="./absSolver -q -u -t $1"
+$COMMAND
