@@ -9,9 +9,6 @@
 syntf="$1"
 origf="$2"
 
-# tuning and global parameters
-modelchecking_time=14400 # for 4 cores = 3600*4
-
 if [ ! -f "$syntf" ]; then
     echo "Error=No output file found!"
     exit
@@ -112,17 +109,21 @@ if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
 fi
 
 # Model checking
-ulimit -t "$modelchecking_time"
-check_res=$(./iimc -t fork -t fair -t klive -t fcbmc -t join "${syntf}-combined.aag")
+check_res=$(./iimc -t fork -t fair -t klive -t fcbmc -t join "${syntf}-combined.aag" 2>&1)
 res_val=$?
 check_res_last=$(tail -n 1 <<< "$check_res")
 if [[ "$check_res_last" =~ ^0$ ]];  then
     echo "Model_check_result=SUCCESS"
+elif [[ "$check_res_last" =~ ^1$ ]]; then
+    echo "starexec-result=MC-INCORRECT"
+    echo "Error=model checker says no! iimc output ($res_val): $check_res"
+    exit
 elif [[ $res_val == 137 || $res_val == 152 || $res_val == 143 ]]; then  # Killed or stopped
-    echo "Model_check_result=TIMEOUT"
+    echo "starexec-result=MC-TIMEOUT"
     exit
 else
-    echo "Error=model checking failed, iimc output: $check_res"
+    echo "starexec-result=MC-ERROR"
+    echo "Error=model checking failed, iimc output ($res_val): $check_res"
     exit
 fi
 
