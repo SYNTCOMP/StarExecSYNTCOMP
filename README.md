@@ -9,6 +9,7 @@ In particular, binaries of
 * nusmv 2.6.0's ltl2smv
 * combine-aiger
 * pycudd2.0.3
+* demiurge 1.2.0
 for the StarExec architecture.
 
 Also, a StarExec-friendly version of
@@ -22,6 +23,7 @@ The following projects have a GPL-style license.
 * AbsSynthe
 * spot
 * nusmv
+* demiurge
 
 The binaries as provided here correspond to compiled versions of the
 unmodified sources available in the corresponding websites. See README in the
