@@ -1,0 +1,7 @@
+#/bin/sh
+echo '#ifndef blqrcfg_h_INCLUDED'
+echo '#define blqrcfg_h_INCLUDED'
+echo '#define BLQR_ID "'"`./getid`"'"'
+echo '#define BLQR_VERSION "'"`cat VERSION`"'"'
+echo '#define BLQR_CFLAGS "'"`sed -e '/^CFLAGS/!d' -e 's,^CFLAGS=,,' makefile`"'"'
+echo '#endif'

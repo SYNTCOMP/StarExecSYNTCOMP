@@ -1,0 +1,204 @@
+==============================================================================
+ QBFcert
+==============================================================================
+
+  This version 1.0 of QBFcert [0], a framework for extraction and validation 
+  of certificates for Quantified Boolean Formulas (QBF).
+
+
+-------------------------------------------------------------------------------
+ General:
+-------------------------------------------------------------------------------
+
+  QBFcert is a framework for resolution-based extraction and validation of 
+  Skolem/Herbrand function based certificates for QBF. See our tool paper at 
+  SAT'12 [1] for more information.
+
+  QBFcert is a shell script that serves as a framework for the following
+  set of tools:
+  
+    - a QBF solver (e.g. DepQBF [2]) 
+    - QRPcheck [3]
+    - QRPcert [4]
+    - CertCheck [5]
+    - a SAT solver (e.g. Lingeling [6])
+
+  QBFcert supports ascii and binary QRP format [7] for resolution-based 
+  traces and proofs. The corresponding QBF certificate is represented as 
+  a set of And-Inverter-Graphs (AIGs) in either ascii or binary AIGER 
+  format [8].
+
+  QBFcert is QBF and SAT solver independent, i.e. it is possible to plug 
+  in basically any QBF resp. SAT solver as long as the QBF solver is able 
+  to produce resolution-based traces or proofs in either ascii or binary 
+  QRP format [7].
+
+
+-------------------------------------------------------------------------------
+ Installation:
+-------------------------------------------------------------------------------
+  
+  QBFcert comes with 64-bit binaries of DepQBF [2], QRPcheck [3], QRPcert [4], 
+  CertCheck [5] and Lingeling [6]. The package archive contains the following 
+  directory structure:
+
+    ./qbfcert/
+        |- certcheck/
+              |- certcheck (binary)
+        |- depqbf/
+              |- depqbf (binary)
+        |- examples/
+              |- adder-2-sat.qdimacs
+              |- adder-2-unsat.qdimacs
+        |- lingeling/
+              |- lingeling (binary)
+        |- qrpcert/
+              |- qrpcert (binary)
+        |- qrpcheck/
+              |- qrpcheck (binary)
+        |- README
+        |- qbfcert.sh
+
+  Hence, after unpacking, you only have to make sure that the skript itself
+  is executable and you're set.
+
+
+-------------------------------------------------------------------------------
+ Usage:
+-------------------------------------------------------------------------------
+
+  QBFcert expects an input QBF in QDIMACS format [9] as mandatory argument.
+  It further requires write permissions to some tmp directory for temporary 
+  storage of intermediate files ('./tmp' by default). Note that these files
+  may be in the size of several GB and are thus not kept permanently. In case
+  you want to explicitely keep them, use option --keep resp. --Keep.
+
+
+  Invocation:
+
+    Usage: ./qbfcert.sh [<OPTIONS>] <FORMULA>
+
+      Formula:
+        a Quantified Boolean Formula (QBF) in QDIMACS format
+
+      Options:
+        -h, --help   print this message and exit
+        -l<dir>      log all tool output to <dir>
+        -i           disable initial cube checking
+        -f<format>   trace/proof format (default: bqrp)
+                       <format>: qrp (ascii QRP)
+                                 bqrp (binary QRP)
+        -F<format>   certificate format (default: baiger)
+                       <format>: aiger (ascii AIGER)
+                                 baiger (binary AIGER)
+        --keep=<dir> keep proof and certificate in <dir>
+        --Keep=<dir> keep all intermediate files in <dir>
+
+
+  Let's illustrate the behaviour of QBFcert with a small example. (We are using
+  the sample formulas that come with QBFcert in the following.)
+
+  Suppose we changed into the root director of qbfcert (for a description of
+  the default directory structure, see above.)
+
+  Example 1: 
+      $ ./qbfcert.sh examples/adder-2-sat.qdimacs
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: VALID
+
+  Example 2: 
+      $ ./qbfcert.sh examples/adder-2-unsat.qdimacs
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: VALID
+
+  As you can see, both sample formulas provided should produce a valid proof
+  and certificate (provided that you use the tools that come with the package).
+
+  Suppose the solver produces an incorrect resolution proof on a given input
+  formula F, then we expect the following output:
+
+  Example 3:
+      $ ./qbfcert.sh /path/to/F
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: QRPcheck ERROR
+
+  Note that this output may also occur if something goes wrong with QRPcheck
+  itself, which we in general do not expect to happen.
+
+  Now, suppose QRPcheck determined the resolution proof itself to be correct.
+  We do not expect QRPcert to fail in the following, as the proof should be
+  correct. Just in case, if the unexpected should still happen:
+
+  Example 4:
+      $ ./qbfcert.sh /path/to/F
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: QRPcert ERROR
+
+  Same goes for CertCheck, except for the case when CertCheck goes horribly
+  wrong (which we again do not expect to happen), QBFcert should not fail
+  at this point. Still, here's the sample output in case that CertCheck fails:
+
+  Example 5:
+      $ ./qbfcert.sh /path/to/F
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: CertCheck ERROR
+
+
+  Now comes the crucial part. Same as above, suppose the proof is correct and
+  we successfully extracted a corresponding certificate. We expect the SAT
+  solver to determine that the output formula of CertCheck is unsatisfiable.
+  If that is not the case, given certificate is invalid for input formula F.
+
+  Example 6:
+      $ ./qbfcert.sh /path/to/F
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: INVALID
+
+
+  Note that in case the SAT solver fails on given input, we expect the 
+  following output:
+
+  Example 7:
+      $ ./qbfcert.sh /path/to/F
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: SAT solver ERROR
+
+
+-------------------------------------------------------------------------------
+ Contact:
+-------------------------------------------------------------------------------
+
+  For comments, questions and bug reports, please contact Aina Niemetz [10] or
+  Mathias Preiner [11].
+
+
+-------------------------------------------------------------------------------
+ References:
+-------------------------------------------------------------------------------
+
+  [0] http://www.fmv.jku.at/qbfcert
+  [1] http://www.fmv.jku.at/papers/NiemetzPreinerLonsingSeidlBiere-SAT12.pdf
+  [2] http://www.fmv.jku.at/depqbf
+  [3] http://www.fmv.jku.at/qrpcheck
+  [4] http://www.fmv.jku.at/qrpcert
+  [5] http://www.fmv.jku.at/certcheck
+  [6] http://www.fmv.jku.at/lingeling
+  [7] http://www.fmv.jku.at/qbfcert/qrp.format
+  [8] http://www.fmv.jku.at/aiger
+  [9] http://www.qbflib.org/qdimacs.html  
+  [10] http://www.fmv.jku.at/niemetz
+  [11] http://www.fmv.jku.at/preiner

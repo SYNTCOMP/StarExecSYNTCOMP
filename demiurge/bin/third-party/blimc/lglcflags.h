@@ -1,0 +1,2 @@
+#define LGL_CC "gcc (GCC) 4.8.5 20150623 (Red Hat 4.8.5-36)"
+#define LGL_CFLAGS "-Wall -O3 -DNLGLOG -DNDEBUG -DNCHKSOL -DNLGLPICOSAT "

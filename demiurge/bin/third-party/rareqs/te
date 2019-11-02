@@ -1,0 +1,55 @@
+#!/bin/bash
+if [ -z "$S" ]; then
+  S=./rareqs
+fi
+
+echo $S ' ==========='
+
+failed=false
+
+echo 'SAT ----------------'
+mkdir -p tmp
+rm -f ./tmp/se ../tmp/so
+for f in `cd examples/sat ; ls`
+do
+   echo -n ${f} "..."
+   echo ${f} ---- >>./tmp/se
+   echo ${f} ---- >>./tmp/so
+   $S examples/sat/$f 2>>./tmp/se >./tmp/${f}.sol
+   if [ $? != 10 ]
+   then 
+      echo FAIL
+      failed=true
+   else 
+      echo OK
+#      qchk examples/sat/${f} ./tmp/${f}.sol
+   fi 
+done
+
+echo 'UNSAT ----------------'
+rm -f ./tmp/ue ../tmp/uo
+for f in `cd examples/unsat ; ls`
+do
+   echo -n ${f} "..."
+   echo ${f} ---- >>./tmp/ue
+   echo ${f} ---- >>./tmp/uo
+   $S examples/unsat/$f 2>>./tmp/ue >./tmp/${f}.sol
+   if [ $? != 20 ]
+   then 
+      echo FAIL
+      failed=true
+   else 
+      echo OK
+#      qchk examples/unsat/${f} ./tmp/${f}.sol
+   fi 
+done
+
+if $failed; then 
+ echo FAIL '  ==========================='
+ exit 100
+else  
+ echo OK '  ==========================='
+ exit 0
+fi 
+
+

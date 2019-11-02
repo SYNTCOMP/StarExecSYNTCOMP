@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# File:  cmpsol
+# Author:  mikolas
+# Created on:  Sun May 5 18:25:34 WEST 2013
+# Copyright (C) 2013, Mikolas Janota
+if [[ $# != 2 ]] ; then
+    echo "Usage: $0 <solv1> <solv2>"
+    exit 100;
+fi
+# if  ! ( which "$1" >/dev/null 2>&1 ) ; then
+#     echo "Looks like $1 can't be run."
+#     exit 300
+# fi
+# if  ! ( which "$2" >/dev/null 2>&1 ) ; then
+#     echo "Looks like $2 can't be run."
+#     exit 300
+# fi
+mkdir -p bugs
+S1=$1
+S2=$2
+TOTAL_RES=0
+while read I; do
+  echo -n $I ":"
+  $S1 $I >/dev/null 2>/dev/null
+  R1=$?
+  $S2 $I >/dev/null 2>/dev/null
+  R2=$?
+  if [ $R1 -ne $R2 ]; then
+    echo 'FAIL' 
+    let TOTAL_RES="${TOTAL_RES}+1"
+  else
+    echo 'OK' 
+  fi
+done
+if [ $TOTAL_RES -eq 0 ]; then
+  echo 'OK'
+else
+  echo 'FAIL', $TOTAL_RES
+fi
+exit $TOTAL_RES
+#

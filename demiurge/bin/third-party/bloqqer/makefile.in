@@ -1,0 +1,20 @@
+CC=gcc
+CFLAGS=@CFLAGS@
+LFLAGS=@LFLAGS@
+bloqqer: bloqqer.o bloqqer.h blqrcfg.o makefile
+	$(CC) $(CFLAGS) -o $@ bloqqer.o blqrcfg.o $(LFLAGS)
+bloqqer.o: bloqqer.c bloqqer.h makefile
+	$(CC) $(CFLAGS) -c bloqqer.c $(LFLAGS)
+libbloqqer.o: bloqqer.c bloqqer.h makefile
+	$(CC) -DLIBBLOQQER $(CFLAGS) -o libbloqqer.o -c bloqqer.c $(LFLAGS)
+blqrcfg.o: blqrcfg.c blqrcfg.h makefile
+	$(CC) $(CLFAGS) -c blqrcfg.c
+blqrcfg.h: bloqqer.c bloqqer.h mkconfig VERSION makefile
+	rm -f $@; ./mkconfig > $@
+libbloqqer.a: libbloqqer.o
+	ar rc $@ libbloqqer.o
+	ranlib $@
+analyze:
+	clang --analyze $(CFLAGS) $(shell ls *.c *.h)
+clean:
+	rm -f `cat .gitignore`

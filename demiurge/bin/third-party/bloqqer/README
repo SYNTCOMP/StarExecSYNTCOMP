@@ -1,0 +1,13 @@
+These are the sources of our QBF preprocessor Bloqqer.
+
+It is described in our CADE'11 paper:
+
+A. Biere, M. Seidl, F. Lonsing.
+Quantified Blocked Clause Elimination.
+Proc. CADE'11.
+
+See COPYING for more details on using this software.
+
+Up-to-date versions of this software are available at
+
+http://fmv.jku.at/bloqqer
