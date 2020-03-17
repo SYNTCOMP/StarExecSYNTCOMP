@@ -6,7 +6,9 @@ $COMMAND
 res=$?
 if [[ $res == 10 ]]; then
     echo "REALIZABLE"
-else
+elif [[ $res == 20 ]]; then
     echo "UNREALIZABLE"
+else
+    echo "UNKNOWN"
 fi
 exit $res
