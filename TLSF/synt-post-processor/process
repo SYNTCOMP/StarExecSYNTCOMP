@@ -127,7 +127,7 @@ else
 fi
 
 # check result
-if [ $result -eq 0 ]; then
+if [ $res_val -eq 0 ]; then
     num_true=$(grep -c 'specification .* is true' "${syntf}-res"|| true)
     num_false=$(grep -c 'specification .* is false' "${syntf}-res" || true)
     if [ $num_false -ge 1 ]; then
@@ -142,7 +142,7 @@ if [ $result -eq 0 ]; then
         echo "Model_check_result=SUCCESS"
         # no exit!
     fi
-elif [ $result -eq 124 ] || [ $result -eq 137 ]; then
+elif [ $res_val -eq 124 ] || [ $res_val -eq 137 ]; then
     echo "starexec-result=MC-TIMEOUT"
     exit
 else
