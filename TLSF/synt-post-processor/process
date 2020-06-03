@@ -1,7 +1,8 @@
 #!/bin/bash
-# AUTHOR: Guillermo A. Perez
+# AUTHORS: Guillermo A. Perez + Philipp Meyer
 # DESCRIPTION: The post-processor for synthesis tools on .tlsf benchmarks
-#              (Based on Jens Kreber's script)
+#              (Based on Jens Kreber's script). This version of the post-
+#              processor uses nuXMV to model check synthesized controllers.
 # arg1 = the solver's output (which StarExec saves to a file!, so this is a
 #        a file path too)
 # arg2 = the absolute path to the benchmark file
@@ -88,7 +89,7 @@ if [ ! -f "${syntf}-sol.aag" ]; then
 fi
 
 # Generate monitor
-./syfco --format smv "$origf" --mode fully | ./smvtoaig -L ./ltl2smv > "monitor.aag"
+./meyerphi-syfco --format smv-decomp "$origf" --mode fully | sed -e "/^/n" | ./smvtoaig -L ./ltl2smv > "monitor.aag"
 
 if [ ! -f "monitor.aag" ]; then
     echo "Error=The monitor file was not generated!"
@@ -108,25 +109,47 @@ if ! (head -n 1 "${syntf}-combined.aag" | grep -q '^aag'); then
     exit
 fi
 
-# Model checking
-check_res=$(./iimc -t fork -t fair -t klive -t fcbmc -t join "${syntf}-combined.aag" 2>&1)
-res_val=$?
-check_res_last=$(tail -n 1 <<< "$check_res")
-if [[ "$check_res_last" =~ ^0$ ]];  then
-    echo "Model_check_result=SUCCESS"
-elif [[ "$check_res_last" =~ ^1$ ]]; then
-    echo "starexec-result=MC-INCORRECT"
-    echo "Error=model checker says no! iimc output ($res_val): $check_res"
-    exit
-elif [[ $res_val == 137 || $res_val == 152 || $res_val == 143 ]]; then  # Killed or stopped
+# Model checking each justice constraint of the combined file in parallel
+num_justice=$(head -n 1 "${syntf}-combined.aag" | cut -d" " -f9);
+
+if [ $num_justice -le 1 ]; then
+    # sequential check
+    set +e
+    echo "read_aiger_model -i ${syntf}-combined.aag; encode_variables; build_boolean_model; check_ltlspec_ic3; quit" | nuXmv -int >"${syntf}-res" 2>&1
+    result=$?
+    set -e
+else
+    # parallel check
+    set +e
+    seq 0 $((num_justice - 1)) | parallel --halt now,fail=1 "echo 'read_aiger_model -i ${syntf}-combined.aag; encode_variables; build_boolean_model; check_ltlspec_ic3 -n {}; quit' | nuXmv -int" >"${syntf}-res" 2>&1
+    res_val=$?
+    set -e
+fi
+
+# check result
+if [ $result -eq 0 ]; then
+    num_true=$(grep -c 'specification .* is true' "${syntf}-res"|| true)
+    num_false=$(grep -c 'specification .* is false' "${syntf}-res" || true)
+    if [ $num_false -ge 1 ]; then
+        echo "starexec-result=MC-INCORRECT"
+        echo "Error=model checker says no!"
+        exit
+    elif [ $num_true -lt $num_justice ]; then
+        echo "starexec-result=MC-ERROR"
+        echo "Error=not all justice properties found"
+        exit
+    else
+        echo "Model_check_result=SUCCESS"
+        # no exit!
+    fi
+elif [ $result -eq 124 ] || [ $result -eq 137 ]; then
     echo "starexec-result=MC-TIMEOUT"
     exit
 else
     echo "starexec-result=MC-ERROR"
-    echo "Error=model checking failed, iimc output ($res_val): $check_res"
+    echo "Error=unknown MC error"
     exit
 fi
-
 
 ## (Reference) circuit size
 size_latches=$(head -n 1 "${syntf}-sol.aag" | cut -d ' ' -f 4)
