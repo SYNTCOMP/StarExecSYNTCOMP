@@ -113,7 +113,8 @@ fi
 num_justice=$(head -n 1 "${syntf}-combined.aag" | cut -d" " -f9);
 
 # sequential check
-TLIMIT=$((STAREXEC_WALLCLOCK_LIMIT - 30))
+TLIMIT=1000
+# TODO: stop hardcoding the above value
 echo "read_aiger_model -i ${syntf}-combined.aag; encode_variables; build_boolean_model; check_ltlspec_ic3; quit" | timeout -k 10 ${TLIMIT} ./nuXmv -int >"${syntf}-res" 2>&1
 res_val=$?
 
