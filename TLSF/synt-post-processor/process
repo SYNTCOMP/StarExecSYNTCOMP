@@ -112,23 +112,13 @@ fi
 # Model checking each justice constraint of the combined file in parallel
 num_justice=$(head -n 1 "${syntf}-combined.aag" | cut -d" " -f9);
 
-if [ $num_justice -le 1 ]; then
-    # sequential check
-    set +e
-    echo "read_aiger_model -i ${syntf}-combined.aag; encode_variables; build_boolean_model; check_ltlspec_ic3; quit" | nuXmv -int >"${syntf}-res" 2>&1
-    result=$?
-    set -e
-else
-    # parallel check
-    set +e
-    seq 0 $((num_justice - 1)) | parallel --halt now,fail=1 "echo 'read_aiger_model -i ${syntf}-combined.aag; encode_variables; build_boolean_model; check_ltlspec_ic3 -n {}; quit' | nuXmv -int" >"${syntf}-res" 2>&1
-    res_val=$?
-    set -e
-fi
+# sequential check
+echo "read_aiger_model -i ${syntf}-combined.aag; encode_variables; build_boolean_model; check_ltlspec_ic3; quit" | ./nuXmv -int >"${syntf}-res" 2>&1
+res_val=$?
 
 # check result
 if [ $res_val -eq 0 ]; then
-    num_true=$(grep -c 'specification .* is true' "${syntf}-res"|| true)
+    num_true=$(grep -c 'specification .* is true' "${syntf}-res" || true)
     num_false=$(grep -c 'specification .* is false' "${syntf}-res" || true)
     if [ $num_false -ge 1 ]; then
         echo "starexec-result=MC-INCORRECT"
@@ -147,7 +137,7 @@ elif [ $res_val -eq 124 ] || [ $res_val -eq 137 ]; then
     exit
 else
     echo "starexec-result=MC-ERROR"
-    echo "Error=unknown MC error"
+    echo "Error=unknown MC error, returned ${res_val}"
     exit
 fi
 
