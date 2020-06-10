@@ -2,7 +2,7 @@
 Processors, examples, and other files for SYNTCOMP 2019 hosted in StarExec
 
 In particular, binaries of
-* syfco v1.1.0.14 and
+* syfco v1.1.0.14 (as well as meyerphi's hack of it https://github.com/meyerphi/syfco)
 * iimc 2.0
 * spot 2.7.4's ltlsynt
 * aiger 1.9.4's aigtoaig & smvtoaig
