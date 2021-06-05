@@ -109,10 +109,9 @@ def parse_csv(filename, bench_root):
                 init_ref = -1 * (diff_ref - new_size)
                 if bench_name not in min_ref:
                     min_ref[bench_name] = new_size
-                    if init_ref in [-1, 0]:
-                        min_ref[bench_name] = new_size
-                    else:
-                        min_ref[bench_name] = min(new_size, init_ref)
+                    # TODO: uncomment
+                    # if init_ref not in [-1, 0]:
+                    #     min_ref[bench_name] = min(new_size, init_ref)
                 else:
                     min_ref[bench_name] = min(new_size, min_ref[bench_name])
                 assert(min_ref[bench_name] >= 0)
