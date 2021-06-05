@@ -136,7 +136,7 @@ def parse_csv(filename, bench_root):
                     if os.path.isfile(csvfname):
                         upd_tags_csv(csvfname, base, min_ref)
                     else:
-                        print(f"Missing csv file {csvfname}!",
+                        print(f"No data and no csv file for {name}!",
                               file=sys.stderr)
     return 0
 
