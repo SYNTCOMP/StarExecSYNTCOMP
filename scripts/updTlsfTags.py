@@ -78,12 +78,16 @@ def upd_tags_csv(filename, base, min_ref):
                 bench = base +\
                     "_".join([vals[k] for k in sorted(valkeys)]) +\
                     ".tlsf"
-                print(f"Found benchmark {bench} in job log")
-                new_min = min_ref[bench]
-                status = "realizable" if new_min >= 0 else "unrealizable"
-                row[headerIdx["status"]] = status
-                row[headerIdx["refsize"]] = str(new_min)
+                if bench in min_ref:
+                    new_min = min_ref[bench]
+                    print(f"Found benchmark {bench} in job log")
+                    status = "realizable" if new_min >= 0 else "unrealizable"
+                    row[headerIdx["status"]] = status
+                    row[headerIdx["refsize"]] = str(new_min)
+                else:
+                    print(f"No data for {bench}", file=sys.stderr)
             writer.writerow(row)
+            rowno += 1
     shutil.move(tempfile.name, filename)
 
 
@@ -123,11 +127,10 @@ def parse_csv(filename, bench_root):
             for name in files:
                 if name in min_ref:
                     full_name = os.path.join(root, name)
-                    print(f"Found benchmark {full_name} in job log")
-                    ref_size = get_tags(full_name)
-                    if ref_size is None:
+                    print(f"Found benchmark {name} in job log")
+                    if get_tags(full_name) is None:
                         add_tags(full_name, min_ref[name])
-                    elif ref_size > min_ref[name]:
+                    else:
                         upd_tags(full_name, min_ref[name])
                 elif name.endswith(".tlsf"):
                     base = name[:-5]
@@ -135,7 +138,8 @@ def parse_csv(filename, bench_root):
                     if os.path.isfile(csvfname):
                         upd_tags_csv(csvfname, base, min_ref)
                     else:
-                        print(f"No results for {name}", file=sys.stderr)
+                        print(f"Missing csv file {csvfname}!",
+                              file=sys.stderr)
     return 0
 
 
