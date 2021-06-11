@@ -13,6 +13,7 @@ Author: Guillermo A. Perez @ UAntwerp 2020-2021
 
 import csv
 import fileinput
+import math
 import os
 import re
 import shutil
@@ -80,7 +81,8 @@ def upd_tags_csv(filename, base, min_ref):
                     ".tlsf"
                 if bench in min_ref:
                     new_min = min_ref[bench]
-                    print(f"Found benchmark {bench} in job log")
+                    print(f"Found benchmark {bench} in job log",
+                          file=sys.stderr)
                     status = "realizable" if new_min >= 0 else "unrealizable"
                     row[headerIdx["status"]] = status
                     row[headerIdx["refsize"]] = str(new_min)
@@ -98,14 +100,18 @@ def parse_csv(filename, bench_root):
         min_ref = dict()
         for row in csv_reader:
             if line_count == 0:
-                pass
-            elif "UNREAL" in row[11]:
-                bench_name = row[1][row[1].rfind('/')+1:]
+                cols = dict(zip(row, range(len(row))))
+            elif "UNREAL" in row[cols["result"]]:
+                bench_name = row[cols["benchmark"]]
+                bench_name = bench_name[bench_name.rfind('/')+1:]
                 min_ref[bench_name] = -1
             else:
-                bench_name = row[1][row[1].rfind('/')+1:]
-                diff_ref = 0 if row[17] == "-" else int(row[17])
-                new_size = int(row[14]) + int(row[18])
+                bench_name = row[cols["benchmark"]]
+                bench_name = bench_name[bench_name.rfind('/')+1:]
+                out_by_ref = row[cols["Difference_to_reference"]]
+                diff_ref = 0 if out_by_ref == "-" else int(out_by_ref)
+                new_size = int(row[cols["Synthesis_latches"]]) +\
+                    int(row[cols["Synthesis_gates"]])
                 init_ref = -1 * (diff_ref - new_size)
                 if bench_name not in min_ref:
                     min_ref[bench_name] = new_size
@@ -116,15 +122,38 @@ def parse_csv(filename, bench_root):
                 assert(min_ref[bench_name] >= 0)
             line_count += 1
 
+    # We now re-traverse the thing to print out the new CSV file
+    with open(filename) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        line_count = 0
+        for row in csv_reader:
+            if line_count == 0:
+                print(f"{','.join(row)},Min_Ref,Score")
+            else:
+                bench_name = row[cols["benchmark"]]
+                bench_name = bench_name[bench_name.rfind('/')+1:]
+                # below I load the sizes + 1 to avoid division by 0
+                # for stupid benchmarks which require no gates
+                # and no latches in the solution
+                new_size = float(int(row[cols["Synthesis_latches"]]) +
+                                 int(row[cols["Synthesis_gates"]]) + 1)
+                ref_size = float(min_ref[bench_name] + 1)
+                score = 2.0 - math.log(new_size / ref_size, 10)
+                capped_score = max(0.0, score)
+                print(f"{','.join(row)},{min_ref[bench_name]},{capped_score}")
+            line_count += 1
+
     # We now explore the subdirectories to find benchmark files and update
     # their tags
     if bench_root is not None:
-        print(f"Starting benchmark-tag update from {bench_root}")
+        print(f"Starting benchmark-tag update from {bench_root}",
+              file=sys.stderr)
         for root, _, files in os.walk(bench_root):
             for name in files:
                 if name in min_ref:
                     full_name = os.path.join(root, name)
-                    print(f"Found benchmark {name} in job log")
+                    print(f"Found benchmark {name} in job log",
+                          file=sys.stderr)
                     if get_tags(full_name) is None:
                         add_tags(full_name, min_ref[name])
                     else:
