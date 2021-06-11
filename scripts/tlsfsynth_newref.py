@@ -65,10 +65,12 @@ def parse_csv(filename, bench_root):
         min_ref = dict()
         for row in csv_reader:
             if line_count == 0:
-                pass
+                cols = dict(zip(row, range(len(row))))
             else:
-                bench_name = row[1][row[1].rfind('/')+1:]
-                diff_ref = 0 if row[17] == "-" else int(row[17])
+                bench_name = row[cols["benchmark"]]
+                bench_name = bench_name[bench_name.rfind('/')+1:]
+                out_by_ref = row[cols["Output_by_reference"]]
+                diff_ref = 0 if out_by_ref == "-" else int(out_by_ref)
                 new_size = int(row[14]) + int(row[18])
                 init_ref = -1 * (diff_ref - new_size)
                 if bench_name not in min_ref:
