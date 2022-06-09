@@ -87,7 +87,7 @@ def upd_tags_csv(filename, base, min_ref):
                     row[headerIdx["status"]] = status
                     row[headerIdx["refsize"]] = str(new_min)
                 else:
-                    print(f"No data for {bench}", file=sys.stderr)
+                    print(f"No data for {bench} in job log", file=sys.stderr)
             writer.writerow(row)
             rowno += 1
     shutil.move(tempfile.name, filename)
