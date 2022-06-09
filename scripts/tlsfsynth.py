@@ -106,7 +106,6 @@ def parse_csv(filename, bench_root):
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 min_ref[bench_name] = -1
             else:
-                print(row[cols["result"]] + " line count " + str(line_count))
                 bench_name = row[cols["benchmark"]]
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 out_by_ref = row[cols["Difference_to_reference"]]
@@ -114,16 +113,13 @@ def parse_csv(filename, bench_root):
                 new_size = int(row[cols["Synthesis_latches"]]) +\
                     int(row[cols["Synthesis_gates"]])
                 init_ref = -1 * (diff_ref - new_size)
-                print(bench_name + str(init_ref))
                 if bench_name not in min_ref:
                     min_ref[bench_name] = new_size
                     if init_ref not in [-1, 0]:
                         min_ref[bench_name] = min(new_size, init_ref)
                 else:
-                    print(bench_name + str(min_ref[bench_name]))
                     min_ref[bench_name] = min(new_size, min_ref[bench_name])
                 if min_ref[bench_name] < 0:
-                    print(bench_name + str(min_ref[bench_name]))
                     assert(False)
 
             line_count += 1
@@ -135,7 +131,7 @@ def parse_csv(filename, bench_root):
         for row in csv_reader:
             if line_count == 0:
                 print(f"{','.join(row)},Min_Ref,Score")
-            else:
+            elif "UNREAL" not in row[cols["result"]]:
                 bench_name = row[cols["benchmark"]]
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 # below I load the sizes + 1 to avoid division by 0
