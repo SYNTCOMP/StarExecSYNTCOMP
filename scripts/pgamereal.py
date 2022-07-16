@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-This script generates the cactusplots for the 2021 edition of SYNTCOMP
+This script generates the cactusplots for the PGAME tracks of
+SYNTCOMP, along with rankings and other useful information
+NOTE: It focuses on time, not on quality
 
 Guillermo A. Perez @ UAntwerp, 2022
 """
@@ -31,7 +33,7 @@ def genCactus(filename, parallel=True):
 
     # Prepare to get the best configuration per tool
     participants = [
-        "Strix PGAME-Real",
+        "Strix PGAME",
         "Knor repair",
         "ltlsynt"
     ]
@@ -52,13 +54,14 @@ def genCactus(filename, parallel=True):
                         cumsum.iloc[-1] < best[p][1].iloc[-1])):
                     best[p] = (numbenchs, cumsum)
                 break
-        print(f"Tool {p}, Configuration {config} solved {cumsum.shape[0]} benchs " +
-              f"in {cumsum.iloc[-1]}s")
         assert(found)
+        print(f"Tool {p}, Configuration {config} solved " +
+              f"{cumsum.shape[0]} benchs " +
+              f"in {cumsum.iloc[-1]}s")
 
     # Show best plot per tool
     final = {
-        "Strix PGAME-Real": "Strix",
+        "Strix PGAME": "Strix",
         "Knor repair": "Knor",
         "ltlsynt": "ltlsynt",
     }

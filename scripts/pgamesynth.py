@@ -13,48 +13,8 @@ Author: Guillermo A. Perez @ UAntwerp 2020-2021
 """
 
 import csv
-import fileinput
 import math
-import re
 import sys
-
-
-status_re = re.compile(r"^//STATUS\s*:\s*(.*)$")
-refsize_re = re.compile(r"^//REF_SIZE\s*:\s*(.*)$")
-
-
-def get_tags(filename):
-    refsize = None
-    f = open(filename, 'r')
-    for line in f:
-        res = status_re.match(line)
-        if res is not None:
-            assert(res.group(1).strip() == "realizable")
-        res = refsize_re.match(line)
-        if res is not None:
-            refsize = int(res.group(1).strip())
-            break
-    f.close()
-    return refsize
-
-
-def add_tags(filename, new_min):
-    f = open(filename, 'a')
-    f.write("\n//#!SYNTCOMP")
-    f.write("\n//STATUS : realizable")
-    f.write(f"\n//REF_SIZE : {new_min}")
-    f.write("\n//#.")
-    f.close()
-
-
-def upd_tags(filename, new_min):
-    with fileinput.FileInput(filename, inplace=True, backup='.bak') as f:
-        for line in f:
-            res = refsize_re.match(line)
-            if res is not None:
-                print(f"//REF_SIZE : {new_min}")
-            else:
-                print(line, end='')
 
 
 def parse_csv(filename, bench_root):
@@ -65,7 +25,7 @@ def parse_csv(filename, bench_root):
         for row in csv_reader:
             if line_count == 0:
                 cols = dict(zip(row, range(len(row))))
-            else:
+            elif row[cols["result"]] in ["REALIZABLE", "NEW-REALIZABLE"]:
                 long_name = row[cols["benchmark"]]
                 bench_name = long_name[long_name.rfind('/')+1:]
                 new_size = int(row[cols["Synthesis_latches"]]) +\
@@ -84,7 +44,7 @@ def parse_csv(filename, bench_root):
         for row in csv_reader:
             if line_count == 0:
                 print(f"{','.join(row)},Min_Ref,Score")
-            else:
+            elif row[cols["result"]] in ["REALIZABLE", "NEW-REALIZABLE"]:
                 long_name = row[cols["benchmark"]]
                 bench_name = long_name[long_name.rfind('/')+1:]
                 # below I load the sizes + 1 to avoid division by 0
