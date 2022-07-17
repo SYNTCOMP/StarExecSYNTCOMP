@@ -105,7 +105,8 @@ def parse_csv(filename, bench_root):
                 bench_name = row[cols["benchmark"]]
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 min_ref[bench_name] = -1
-            else:
+            elif row[cols["result"]] in ["REALIZABLE", "NEW-REALIZABLE"]:
+                print(f"{line_count+1}: {row[cols['result']]}")
                 bench_name = row[cols["benchmark"]]
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 out_by_ref = row[cols["Difference_to_reference"]]
@@ -131,7 +132,7 @@ def parse_csv(filename, bench_root):
         for row in csv_reader:
             if line_count == 0:
                 print(f"{','.join(row)},Min_Ref,Score")
-            elif "UNREAL" not in row[cols["result"]]:
+            elif row[cols["result"]] in ["REALIZABLE", "NEW-REALIZABLE"]:
                 bench_name = row[cols["benchmark"]]
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 # below I load the sizes + 1 to avoid division by 0
