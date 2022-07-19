@@ -4,10 +4,8 @@
 This script reads a StarExec job-information file given in CSV format and
 holding information about a PGAME synthesis job and adds to it a column with
 the minimal implementation (over values in the file! this ignores tags).  The
-reference value includes the number of latches + no. of gates. It assumes
-that all entries in the file correspond to correctly synthesized outputs (no
-unreal entries). Additionally, it directly adds a score per entry based on the
-new reference.
+reference value includes the number of latches + no. of gates. Additionally,
+it directly adds a score per entry based on the new reference.
 
 Author: Guillermo A. Perez @ UAntwerp 2020-2021
 """
