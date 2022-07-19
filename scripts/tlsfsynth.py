@@ -105,7 +105,6 @@ def parse_csv(filename, bench_root):
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 min_ref[bench_name] = -1
             elif row[cols["result"]] in ["REALIZABLE", "NEW-REALIZABLE"]:
-                print(f"{line_count+1}: {row[cols['result']]}")
                 bench_name = row[cols["benchmark"]]
                 bench_name = bench_name[bench_name.rfind('/')+1:]
                 out_by_ref = row[cols["Difference_to_reference"]]
