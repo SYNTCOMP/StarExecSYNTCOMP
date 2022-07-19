@@ -5,8 +5,7 @@ This script reads a StarExec job-information file given in CSV format and
 holding information about a TLSF synthesis job and updates the tags in the
 benchmark files regarding the status of the benchmark and the size of the
 minimal implementation. The reference value includes the number of latches +
-no. of gates. (The CSV is assumed to contain only information about completed
-jobs, so it is realizable or unrealizable.)
+no. of gates.
 
 Author: Guillermo A. Perez @ UAntwerp 2020-2021
 """
