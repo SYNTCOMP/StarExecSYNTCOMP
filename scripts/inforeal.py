@@ -30,8 +30,16 @@ participantsLTLreal = {
     "abonsai": "Acacia bonsai"
 }
 
+participantsLTLFreal = {
+    "lisa-syntcomp": "lisa",
+    "ltlfsynt23prebuild": "ltlfsynt",
+    "LydiaSyft": "LydiaSyft",
+    "Nike": "Nike",
+    "tople": "tople"
+}
 
-def genCactus(filename, track, parallel=True):
+
+def genCactus(filename, track, exclude, verbose, parallel=True):
     bound = "wallclock time" if parallel else "cpu time"
     if parallel:
         print("Using time bounds for PARALLEL tracks")
@@ -43,30 +51,42 @@ def genCactus(filename, track, parallel=True):
     # Remove all entries without a valid output
     print("Shape of raw input:")
     print(df.shape[0])
+    print(f"Excluding {len(exclude)} pair ids")
+    df = df[~df["pair id"].isin(exclude)]
     df = df[df.result.isin(["REALIZABLE", "NEW-REALIZABLE",
                             "UNREALIZABLE", "NEW-UNREALIZABLE"])]
     df = df[~df.status.isin(["timeout (cpu)", "timeout (wallclock)"])]
     print("Shape after removing invalid output status and timeouts")
     print(df.shape[0])
 
+    # Checking for misclassifications
+    for bench, subdf in df.groupby(df.benchmark):
+        real = subdf[subdf.result.isin(["REALIZABLE", "NEW-REALIZABLE"])]
+        unrl = subdf[subdf.result.isin(["UNREALIZABLE", "NEW-UNREALIZABLE"])]
+        assert real.shape[0] == 0 or unrl.shape[0] == 0,\
+            f"{bench} is misclassified by some tool!\n{real}\n{unrl}"
+
     # Prepare to get the best configuration per tool
     if track == "PGreal":
         participants = participantsPGreal
     elif track == "LTLreal":
         participants = participantsLTLreal
+    elif track == "LTLFreal":
+        participants = participantsLTLFreal
     else:
         assert False
     best = {}
     summary = {}
 
     # Group them by tool configuration for the rest
-    for config, subdf in df.groupby(df.configuration):
+    for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
         found = False
         for p in participants:
-            tool = subdf.head(1).solver.iloc[0]
             if tool.lower().startswith(p.lower()):
                 found = True
                 subdf = subdf.sort_values(by=bound)
+                if verbose:
+                    subdf.to_csv(f"{p}.{config}.csv")
                 cumsum = subdf[bound].cumsum()
                 numbenchs = cumsum.shape[0]
                 # store the summary
@@ -80,7 +100,7 @@ def genCactus(filename, track, parallel=True):
                       f"{numbenchs} benchs " +
                       f"in {cumsum.iloc[-1]}s")
                 break
-        assert found
+        assert found, f"Did not find tool {tool}"
 
     # Show best plot per tool
     markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
@@ -138,8 +158,16 @@ if __name__ == "__main__":
     parser.add_argument("sxdata",
                         help="Full path to the StarExec "
                              "job info file")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Print more information messages "
+                             "and dump intermediate csv files")
+    parser.add_argument("--expairs", type=int, nargs='*',
+                        metavar="PID", default=[],
+                        help="pair ids you wish to exclude")
     args = parser.parse_args()
-    summarySeq = genCactus(args.sxdata, args.track, False)
-    summaryPar = genCactus(args.sxdata, args.track, True)
+    summarySeq = genCactus(args.sxdata, args.track, args.expairs,
+                           args.verbose, False)
+    summaryPar = genCactus(args.sxdata, args.track, args.expairs,
+                           args.verbose, True)
     printTable(summarySeq, summaryPar)
     exit(0)
