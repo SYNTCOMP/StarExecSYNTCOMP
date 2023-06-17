@@ -2,13 +2,13 @@
 """
 This script generates the cactusplots for some tracks of
 SYNTCOMP, along with rankings and other useful information
-NOTE: It focuses on time, not on quality
 
 Guillermo A. Perez @ UAntwerp, 2022
 """
 
 import argparse
 import itertools
+import math
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -39,12 +39,22 @@ participantsLTLFreal = {
 }
 
 
-def genCactus(filename, track, exclude, verbose, parallel=True):
+def getScore(syntTotal, syntRef):
+    assert syntTotal >= syntRef
+    return max(0.0, 2.0 - math.log((syntTotal + 1.0) / (syntRef + 1.0), 10))
+
+
+def genCactus(filename, track, exclude, synthesis, verbose,
+              parallel=True):
     bound = "wallclock time" if parallel else "cpu time"
-    if parallel:
-        print("Using time bounds for PARALLEL tracks")
+    if synthesis:
+        print("Checking quality ranking")
     else:
-        print("Using time bounds for SEQUENTIAL tracks")
+        print("Computing time-based statistics")
+        if parallel:
+            print("Using time bounds for PARALLEL tracks")
+        else:
+            print("Using time bounds for SEQUENTIAL tracks")
     # Loading the data in a pandas data frame
     df = pd.read_csv(filename)
 
@@ -53,20 +63,30 @@ def genCactus(filename, track, exclude, verbose, parallel=True):
     print(df.shape[0])
     print(f"Excluding {len(exclude)} pair ids")
     df = df[~df["pair id"].isin(exclude)]
-    df = df[df.result.isin(["REALIZABLE", "NEW-REALIZABLE",
-                            "UNREALIZABLE", "NEW-UNREALIZABLE"])]
+    possibleRes = ["REALIZABLE", "NEW-REALIZABLE"]
+    if not synthesis:
+        possibleRes.extend(["UNREALIZABLE", "NEW-UNREALIZABLE"])
+    df = df[df.result.isin(possibleRes)]
     df = df[~df.status.isin(["timeout (cpu)", "timeout (wallclock)"])]
     print("Shape after removing invalid output status and timeouts")
     print(df.shape[0])
 
     # Checking for misclassifications
-    for bench, subdf in df.groupby(df.benchmark):
-        real = subdf[subdf.result.isin(["REALIZABLE", "NEW-REALIZABLE"])]
-        unrl = subdf[subdf.result.isin(["UNREALIZABLE", "NEW-UNREALIZABLE"])]
-        assert real.shape[0] == 0 or unrl.shape[0] == 0,\
-            f"{bench} is misclassified by some tool!\n{real}\n{unrl}"
+    # this only makes sense if there can be mismatching
+    # classes (so not for synthesis)
+    if not synthesis:
+        for bench, subdf in df.groupby(df.benchmark):
+            real = subdf[subdf.result.isin(["REALIZABLE",
+                                            "NEW-REALIZABLE"])]
+            unrl = subdf[subdf.result.isin(["UNREALIZABLE",
+                                            "NEW-UNREALIZABLE"])]
+            assert real.shape[0] == 0 or unrl.shape[0] == 0,\
+                f"{bench} is misclassified by some tool!\n{real}\n{unrl}"
+    else:  # for synthesis, check the model-checking result
+        fail = df[df["Model_check_result"] != "SUCCESS"]
+        assert fail.shape[0] == 0, f"Model checking failed {fail}"
 
-    # Prepare to get the best configuration per tool
+    # Prepare to get information per tool
     if track == "PGreal":
         participants = participantsPGreal
     elif track == "LTLreal":
@@ -78,6 +98,22 @@ def genCactus(filename, track, exclude, verbose, parallel=True):
     best = {}
     summary = {}
 
+    # For synthesis, we compute the minimal size in the file per benchmark
+    # as well as the total size (for convenience); then we also compute
+    # the scores
+    if synthesis:
+        df = df.astype({"Synthesis_gates": "float64",
+                        "Synthesis_latches": "float64"})
+        df["Synthesis_total"] = (df["Synthesis_gates"] +
+                                 df["Synthesis_latches"])
+        df["Synthesis_ref"] =\
+            df.groupby(df.benchmark)["Synthesis_total"].transform("min")
+        df["Synthesis_score"] = df.apply(lambda row:
+                                         getScore(row["Synthesis_total"],
+                                                  row["Synthesis_ref"]),
+                                         axis=1)
+        print(df.head())
+
     # Group them by tool configuration for the rest
     for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
         found = False
@@ -87,42 +123,49 @@ def genCactus(filename, track, exclude, verbose, parallel=True):
                 subdf = subdf.sort_values(by=bound)
                 if verbose:
                     subdf.to_csv(f"{p}.{config}.csv")
+                numbenchs = subdf.shape[0]
                 cumsum = subdf[bound].cumsum()
-                numbenchs = cumsum.shape[0]
                 # store the summary
-                summary[(p, config)] = (numbenchs, cumsum.iloc[-1])
+                if not synthesis:
+                    summary[(p, config)] = (numbenchs, cumsum.iloc[-1])
+                else:
+                    scoresum = subdf["Synthesis_score"].sum()
+                    summary[(p, config)] = (numbenchs, scoresum)
+
                 # store the info of the best configs
-                if (p not in best or numbenchs > best[p][0]
-                    or (numbenchs == best[p][0] and
-                        cumsum.iloc[-1] < best[p][1].iloc[-1])):
-                    best[p] = (numbenchs, cumsum)
-                print(f"Tool {p}, Configuration {config} solved " +
-                      f"{numbenchs} benchs " +
-                      f"in {cumsum.iloc[-1]}s")
+                if not synthesis:
+                    if (p not in best or numbenchs > best[p][0]
+                        or (numbenchs == best[p][0] and
+                            cumsum.iloc[-1] < best[p][1].iloc[-1])):
+                        best[p] = (numbenchs, cumsum)
+                    print(f"Tool {p}, Configuration {config} solved " +
+                          f"{numbenchs} benchs " +
+                          f"in {cumsum.iloc[-1]}s")
                 break
         assert found, f"Did not find tool {tool}"
 
-    # Show best plot per tool
-    markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
-    for tool in best:
-        (_, cumsum) = best[tool]
-        print(f"The best config of {participants[tool]} solved "
-              f"{cumsum.shape[0]} " +
-              f"in {cumsum.iloc[-1]}s")
-        plt.plot(range(1, cumsum.shape[0] + 1), cumsum,
-                 label=participants[tool],
-                 marker=next(markers))
+    if not synthesis:
+        # Show best plot per tool
+        markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
+        for tool in best:
+            (_, cumsum) = best[tool]
+            print(f"The best config of {participants[tool]} solved "
+                  f"{cumsum.shape[0]} " +
+                  f"in {cumsum.iloc[-1]}s")
+            plt.plot(range(1, cumsum.shape[0] + 1), cumsum,
+                     label=participants[tool],
+                     marker=next(markers))
 
-    # Show the plot and close everything after
-    plt.legend(loc="lower right")
-    plt.yscale("log")
-    if parallel:
-        plt.ylabel("Total wall-clock time (s)")
-    else:
-        plt.ylabel("Total cpu time (s)")
-    plt.xlabel("No. of solved benchmarks")
-    plt.show()
-    plt.close()
+        # Show the plot and close everything after
+        plt.legend(loc="lower right")
+        plt.yscale("log")
+        if parallel:
+            plt.ylabel("Total wall-clock time (s)")
+        else:
+            plt.ylabel("Total cpu time (s)")
+        plt.xlabel("No. of solved benchmarks")
+        plt.show()
+        plt.close()
 
     return summary
 
@@ -164,10 +207,13 @@ if __name__ == "__main__":
     parser.add_argument("--expairs", type=int, nargs='*',
                         metavar="PID", default=[],
                         help="pair ids you wish to exclude")
+    parser.add_argument("--synthesis", action="store_true",
+                        help="Compute synthesis quality ranking")
     args = parser.parse_args()
     summarySeq = genCactus(args.sxdata, args.track, args.expairs,
-                           args.verbose, False)
+                           args.synthesis, args.verbose, False)
+    exit(0)
     summaryPar = genCactus(args.sxdata, args.track, args.expairs,
-                           args.verbose, True)
+                           args.synthesis, args.verbose, True)
     printTable(summarySeq, summaryPar)
     exit(0)
