@@ -3,7 +3,7 @@
 This script generates the cactusplots for some tracks of
 SYNTCOMP, along with rankings and other useful information
 
-Guillermo A. Perez @ UAntwerp, 2022
+Guillermo A. Perez @ UAntwerp, 2023
 """
 
 import argparse
@@ -13,29 +13,40 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-participantsPGreal = {
-    "Strix PGAME": "Strix",
-    "Knor repair": "Knor",
-    "ltlsynt": "ltlsynt",
-}
-
-
-participantsLTLreal = {
-    "Strix PGAME": "Strix",
-    "ltlsynt23": "ltlsynt",
-    "Otus": "Otus",
-    "sdf": "sdf",
-    "SPORE": "SPORE",
-    "Strix": "Strix",
-    "abonsai": "Acacia bonsai"
-}
-
-participantsLTLFreal = {
-    "lisa-syntcomp": "lisa",
-    "ltlfsynt23prebuild": "ltlfsynt",
-    "LydiaSyft": "LydiaSyft",
-    "Nike": "Nike",
-    "tople": "tople"
+partPerTrack = {
+    "PGreal": {
+        "Strix PGAME": "Strix",
+        "Knor repair": "Knor",
+        "ltlsynt": "ltlsynt"
+    },
+    "PGsynt": {
+        "Strix PGAME": "Strix",
+        "Knor repair": "Knor",
+        "ltlsynt": "ltlsynt"
+    },
+    "LTLreal": {
+        "Strix PGAME": "Strix",
+        "ltlsynt23": "ltlsynt",
+        "Otus": "Otus",
+        "sdf": "sdf",
+        "SPORE": "SPORE",
+        "Strix": "Strix",
+        "abonsai": "Acacia bonsai"
+    },
+    "LTLsynt": {
+        "abonsai": "Acacia bonsai",
+        "ltlsynt23": "ltlsynt",
+        "Otus": "Otus",
+        "sdf": "sdf",
+        "Strix": "Strix"
+    },
+    "LTLFreal": {
+        "lisa-syntcomp": "lisa",
+        "ltlfsynt23prebuild": "ltlfsynt",
+        "LydiaSyft": "LydiaSyft",
+        "Nike": "Nike",
+        "tople": "tople"
+    }
 }
 
 
@@ -87,14 +98,7 @@ def genCactus(filename, track, exclude, synthesis, verbose,
         assert fail.shape[0] == 0, f"Model checking failed {fail}"
 
     # Prepare to get information per tool
-    if track == "PGreal":
-        participants = participantsPGreal
-    elif track == "LTLreal":
-        participants = participantsLTLreal
-    elif track == "LTLFreal":
-        participants = participantsLTLFreal
-    else:
-        assert False
+    participants = partPerTrack[track]
     best = {}
     summary = {}
 
@@ -130,64 +134,83 @@ def genCactus(filename, track, exclude, synthesis, verbose,
                     summary[(p, config)] = (numbenchs, cumsum.iloc[-1])
                 else:
                     scoresum = subdf["Synthesis_score"].sum()
-                    summary[(p, config)] = (numbenchs, scoresum)
+                    summary[(p, config)] = (numbenchs, cumsum.iloc[-1],
+                                            scoresum)
 
                 # store the info of the best configs
-                if not synthesis:
-                    if (p not in best or numbenchs > best[p][0]
-                        or (numbenchs == best[p][0] and
-                            cumsum.iloc[-1] < best[p][1].iloc[-1])):
-                        best[p] = (numbenchs, cumsum)
-                    print(f"Tool {p}, Configuration {config} solved " +
-                          f"{numbenchs} benchs " +
-                          f"in {cumsum.iloc[-1]}s")
+                if (p not in best or numbenchs > best[p][0]
+                    or (numbenchs == best[p][0] and
+                        cumsum.iloc[-1] < best[p][1].iloc[-1])):
+                    best[p] = (numbenchs, cumsum)
+                print(f"Tool {p}, Configuration {config} solved " +
+                      f"{numbenchs} benchs " +
+                      f"in {cumsum.iloc[-1]}s")
                 break
         assert found, f"Did not find tool {tool}"
 
-    if not synthesis:
-        # Show best plot per tool
-        markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
-        for tool in best:
-            (_, cumsum) = best[tool]
-            print(f"The best config of {participants[tool]} solved "
-                  f"{cumsum.shape[0]} " +
-                  f"in {cumsum.iloc[-1]}s")
-            plt.plot(range(1, cumsum.shape[0] + 1), cumsum,
-                     label=participants[tool],
-                     marker=next(markers))
+    # Show best plot per tool
+    markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
+    for tool in best:
+        (_, cumsum) = best[tool]
+        print(f"The best config of {participants[tool]} solved "
+              f"{cumsum.shape[0]} " +
+              f"in {cumsum.iloc[-1]}s")
+        plt.plot(range(1, cumsum.shape[0] + 1), cumsum,
+                 label=participants[tool],
+                 marker=next(markers))
 
-        # Show the plot and close everything after
-        plt.legend(loc="lower right")
-        plt.yscale("log")
-        if parallel:
-            plt.ylabel("Total wall-clock time (s)")
-        else:
-            plt.ylabel("Total cpu time (s)")
-        plt.xlabel("No. of solved benchmarks")
-        plt.show()
-        plt.close()
+    # Show the plot and close everything after
+    plt.legend(loc="lower right")
+    plt.yscale("log")
+    if parallel:
+        plt.ylabel("Total wall-clock time (s)")
+    else:
+        plt.ylabel("Total cpu time (s)")
+    plt.xlabel("No. of solved benchmarks")
+    plt.show()
+    plt.close()
 
     return summary
 
 
-def printTable(sumSeq, sumPar):
-    print("<table><tbody><tr>"
-          "<th>Solver</th>"
-          "<th>Configuration</th>"
-          "<th>Solved benchmarksr</th>"
-          "<th>Total CPU time (s)</th>"
-          "<th>Total Wallclock time (s)</th></tr>")
-    for (p, config) in sumSeq:
-        (numbenchs, totSeq) = sumSeq[(p, config)]
-        (_, totPar) = sumPar[(p, config)]
-        print("<tr>")
-        print(f"<td>{p}</td>"
-              f"<td>{config}</td>"
-              f"<td>{numbenchs}</td>"
-              f"<td>{totSeq:.2f}</td>"
-              f"<td>{totPar:.2f}</td>")
-        print("</tr>")
-        pass
+def printTable(sumSeq, sumPar, synthesis):
+    print("<table><tbody><tr>")
+
+    if not synthesis:
+        print("<th>Solver</th>"
+              "<th>Configuration</th>"
+              "<th>Solved benchmarks</th>"
+              "<th>Total CPU time (s)</th>"
+              "<th>Total Wallclock time (s)</th></tr>")
+        for (p, config) in sumSeq:
+            (numbenchs, totSeq) = sumSeq[(p, config)]
+            (_, totPar) = sumPar[(p, config)]
+            print("<tr>")
+            print(f"<td>{p}</td>"
+                  f"<td>{config}</td>"
+                  f"<td>{numbenchs}</td>"
+                  f"<td>{totSeq:.2f}</td>"
+                  f"<td>{totPar:.2f}</td>")
+            print("</tr>")
+    else:
+        print("<th>Solver</th>"
+              "<th>Config</th>"
+              "<th>No. controllers</th>"
+              "<th>CPU time (s)</th>"
+              "<th>Wallclock (s)</th>"
+              "<th>Score</th></tr>")
+        for (p, config) in sumSeq:
+            (numbenchs, totSeq, score) = sumSeq[(p, config)]
+            (_, totPar) = sumPar[(p, config)]
+            print("<tr>")
+            print(f"<td>{p}</td>"
+                  f"<td>{config}</td>"
+                  f"<td>{numbenchs}</td>"
+                  f"<td>{totSeq:.2f}</td>"
+                  f"<td>{totPar:.2f}</td>"
+                  f"<td>{score:.2f}</td>")
+            print("</tr>")
+
     print("</tbody></table>")
 
 
@@ -195,9 +218,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Summarize the job "
                                                  "information from "
                                                  "StarExec")
-    parser.add_argument("track",
-                        help="Track type, e.g. PGreal, "
-                             "LTLreal, ...")
+    parser.add_argument("track", type=str,
+                        choices=partPerTrack.keys())
     parser.add_argument("sxdata",
                         help="Full path to the StarExec "
                              "job info file")
@@ -212,8 +234,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     summarySeq = genCactus(args.sxdata, args.track, args.expairs,
                            args.synthesis, args.verbose, False)
-    exit(0)
+    # Note that we only need the score once, so we can hardcode False
+    # in the synthesis parameter next
     summaryPar = genCactus(args.sxdata, args.track, args.expairs,
-                           args.synthesis, args.verbose, True)
-    printTable(summarySeq, summaryPar)
+                           False, args.verbose, True)
+    printTable(summarySeq, summaryPar, args.synthesis)
     exit(0)
