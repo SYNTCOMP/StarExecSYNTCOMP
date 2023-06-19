@@ -44,6 +44,8 @@ above, again getting a `killDeadlockedJobPair`.
 The command is `python3 inforeal.py LTLFreal ~/Downloads/ltlf-real/Job59546_info.csv --expairs $(cat excludes.txt)` with
 the contents of `excludes.txt` in this case being the following.
 
+612464204
+612467420
 612466157
 612466158
 612466159
