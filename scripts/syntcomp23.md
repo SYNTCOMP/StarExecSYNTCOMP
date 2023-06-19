@@ -1,5 +1,7 @@
 # Reproducing the rankings and graphs
-Most of the work is done using the `inforeal.py` Python script.
+Most of the work is done using the `inforeal.py` Python script. Below, we
+mention how to run the script for realizability tracks. For synthesis, just
+add `--synthesis` and change `Xreal` to `Xsynt` in the track.
 
 ## LTL realizability
 The following can be executed to obtain the graphs from the StarExec

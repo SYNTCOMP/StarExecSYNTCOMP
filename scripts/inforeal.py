@@ -56,8 +56,7 @@ def getScore(syntTotal, syntRef):
 
 
 def genCactus(filename, track, exclude, synthesis, verbose,
-              parallel=True):
-    bound = "wallclock time" if parallel else "cpu time"
+              parallel, timeout):
     if synthesis:
         print("Checking quality ranking")
     else:
@@ -66,10 +65,12 @@ def genCactus(filename, track, exclude, synthesis, verbose,
             print("Using time bounds for PARALLEL tracks")
         else:
             print("Using time bounds for SEQUENTIAL tracks")
+
     # Loading the data in a pandas data frame
     df = pd.read_csv(filename)
 
     # Remove all entries without a valid output
+    bound = "wallclock time" if parallel else "cpu time"
     print("Shape of raw input:")
     print(df.shape[0])
     print(f"Excluding {len(exclude)} pair ids")
@@ -79,6 +80,8 @@ def genCactus(filename, track, exclude, synthesis, verbose,
         possibleRes.extend(["UNREALIZABLE", "NEW-UNREALIZABLE"])
     df = df[df.result.isin(possibleRes)]
     df = df[~df.status.isin(["timeout (cpu)", "timeout (wallclock)"])]
+    if timeout is not None:
+        df = df[df[bound] <= timeout]
     print("Shape after removing invalid output status and timeouts")
     print(df.shape[0])
 
@@ -179,33 +182,33 @@ def printTable(sumSeq, sumPar, synthesis):
     if not synthesis:
         print("<th>Solver</th>"
               "<th>Configuration</th>"
-              "<th>Solved benchmarks</th>"
-              "<th>Total CPU time (s)</th>"
-              "<th>Total Wallclock time (s)</th></tr>")
+              "<th>Solved (seq/par)</th>"
+              "<th>CPU time (s)</th>"
+              "<th>Wallclock time (s)</th></tr>")
         for (p, config) in sumSeq:
-            (numbenchs, totSeq) = sumSeq[(p, config)]
-            (_, totPar) = sumPar[(p, config)]
+            (numseq, totSeq) = sumSeq[(p, config)]
+            (numpar, totPar) = sumPar[(p, config)]
             print("<tr>")
             print(f"<td>{p}</td>"
                   f"<td>{config}</td>"
-                  f"<td>{numbenchs}</td>"
+                  f"<td>{numseq}/{numpar}</td>"
                   f"<td>{totSeq:.2f}</td>"
                   f"<td>{totPar:.2f}</td>")
             print("</tr>")
     else:
         print("<th>Solver</th>"
               "<th>Config</th>"
-              "<th>No. controllers</th>"
+              "<th>Solved (seq/par)</th>"
               "<th>CPU time (s)</th>"
               "<th>Wallclock (s)</th>"
               "<th>Score</th></tr>")
         for (p, config) in sumSeq:
-            (numbenchs, totSeq, score) = sumSeq[(p, config)]
-            (_, totPar) = sumPar[(p, config)]
+            (numseq, totSeq, score) = sumSeq[(p, config)]
+            (numpar, totPar) = sumPar[(p, config)]
             print("<tr>")
             print(f"<td>{p}</td>"
                   f"<td>{config}</td>"
-                  f"<td>{numbenchs}</td>"
+                  f"<td>{numseq}/{numpar}</td>"
                   f"<td>{totSeq:.2f}</td>"
                   f"<td>{totPar:.2f}</td>"
                   f"<td>{score:.2f}</td>")
@@ -223,6 +226,9 @@ if __name__ == "__main__":
     parser.add_argument("sxdata",
                         help="Full path to the StarExec "
                              "job info file")
+    parser.add_argument("--timeout", type=int,
+                        help="Timeout, in seconds, for objective "
+                             "sequential track comparison")
     parser.add_argument("--verbose", action="store_true",
                         help="Print more information messages "
                              "and dump intermediate csv files")
@@ -233,10 +239,11 @@ if __name__ == "__main__":
                         help="Compute synthesis quality ranking")
     args = parser.parse_args()
     summarySeq = genCactus(args.sxdata, args.track, args.expairs,
-                           args.synthesis, args.verbose, False)
+                           args.synthesis, args.verbose, False,
+                           args.timeout)
     # Note that we only need the score once, so we can hardcode False
     # in the synthesis parameter next
     summaryPar = genCactus(args.sxdata, args.track, args.expairs,
-                           False, args.verbose, True)
+                           False, args.verbose, True, args.timeout)
     printTable(summarySeq, summaryPar, args.synthesis)
     exit(0)
