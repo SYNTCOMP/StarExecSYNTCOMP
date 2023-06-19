@@ -201,17 +201,17 @@ def printTable(sumSeq, sumPar, synthesis):
               "<th>Solved (seq/par)</th>"
               "<th>CPU time (s)</th>"
               "<th>Wallclock (s)</th>"
-              "<th>Score</th></tr>")
+              "<th>Score (seq/par)</th></tr>")
         for (p, config) in sumSeq:
-            (numseq, totSeq, score) = sumSeq[(p, config)]
-            (numpar, totPar) = sumPar[(p, config)]
+            (numseq, totSeq, scoreSeq) = sumSeq[(p, config)]
+            (numpar, totPar, scorePar) = sumPar[(p, config)]
             print("<tr>")
             print(f"<td>{p}</td>"
                   f"<td>{config}</td>"
                   f"<td>{numseq}/{numpar}</td>"
                   f"<td>{totSeq:.2f}</td>"
                   f"<td>{totPar:.2f}</td>"
-                  f"<td>{score:.2f}</td>")
+                  f"<td>{scoreSeq:.2f}/{scorePar:.2f}</td>")
             print("</tr>")
 
     print("</tbody></table>")
@@ -241,9 +241,8 @@ if __name__ == "__main__":
     summarySeq = genCactus(args.sxdata, args.track, args.expairs,
                            args.synthesis, args.verbose, False,
                            args.timeout)
-    # Note that we only need the score once, so we can hardcode False
-    # in the synthesis parameter next
     summaryPar = genCactus(args.sxdata, args.track, args.expairs,
-                           False, args.verbose, True, args.timeout)
+                           args.synthesis, args.verbose, True,
+                           args.timeout)
     printTable(summarySeq, summaryPar, args.synthesis)
     exit(0)

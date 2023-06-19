@@ -1,7 +1,6 @@
 # Reproducing the rankings and graphs
 Most of the work is done using the `inforeal.py` Python script. Below, we
-mention how to run the script for realizability tracks. For synthesis, just
-add `--synthesis` and change `Xreal` to `Xsynt` in the track.
+mention how to run the script for realizability tracks.
 
 ## LTL realizability
 The following can be executed to obtain the graphs from the StarExec
@@ -17,12 +16,16 @@ having a memory out that manifests itself in the form of a
 `killDeadlockedJobPair` status in StarExec. The tool then panics and outputs a
 wrong verdict.
 
-## Parity-game realizability
+## Parity-game
 In this case it suffices to use the script as follows
 
-`python3 inforeal.py PGreal ~/Downloads/pgame-real/Job59479_info.csv`
+`python3 inforeal.py PGreal file.csv --timeout 1800`
 
-## LTL realizability
+and for synthesis
+
+`python3 inforeal.py PGsynt file.csv --timeout 1800 --synthesis`
+
+## LTLF realizability
 Here again the script works but we have to exclude a number of pair ids
 corresponding to the tool lisa-syntcomp having a memory out like that of SPORE
 above, again getting a `killDeadlockedJobPair`.
