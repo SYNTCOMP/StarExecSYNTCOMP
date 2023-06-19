@@ -24,7 +24,8 @@ having a memory out that manifests itself in the form of a
 wrong verdict.
 
 ### Synthesis
-We add `--synthesis` as an option to the script.
+We add `--synthesis` as an option to the script. No hardcoded pairs are needed
+since SPORE did not participate in the synthesis tracks.
 
 ## Parity games
 In this case it suffices to use the script as follows
