@@ -2,21 +2,31 @@
 Most of the work is done using the `inforeal.py` Python script. Below, we
 mention how to run the script for realizability tracks.
 
-## LTL realizability
+## LTL
 The following can be executed to obtain the graphs from the StarExec
-information and output files for the corresponding job.
+information and output files for the corresponding job. We start with
+realizability.
+
+### Realizability
 
 1. We clean the dataset because of acacia outputing a verdict when it is
-   actually crashing. Concretely: `grep -r "std::bad_alloc" ~/Downloads/ltl-real-output/LTL/abonsai___real -l | sed "s/^.*\/\(.*\)\.txt$/\1/g" > excludes.txt` and `grep -r "Too many acc" ~/Downloads/ltl-real-output/LTL/abonsai___real -l | sed "s/^.*\/\(.*\)\.txt$/\1/g" >> excludes.txt`
+   actually crashing. Concretely:
+   `grep -r "std::bad_alloc" ~/Downloads/ltl-real-output/LTL/abonsai___real -l | sed "s/^.*\/\(.*\)\.txt$/\1/g" > excludes.txt`
+   and
+   `grep -r "Too many acc" ~/Downloads/ltl-real-output/LTL/abonsai___real -l | sed "s/^.*\/\(.*\)\.txt$/\1/g" >> excludes.txt`
 2. We run the python script to generate the graphs and get the summary of
-   results: `python3 inforeal.py LTLreal ~/Downloads/ltl-real/Job59530_info.csv --expairs 612435292 612435294 612429172 612429173 612429174 612429175 612431137 612431139 $(cat excludes.txt)`
+   results: 
+   `python3 inforeal.py LTLreal ~/Downloads/ltl-real/Job59530_info.csv --timeout 1800 --expairs 612435292 612435294 612429172 612429173 612429174 612429175 612431137 612431139 $(cat excludes.txt)`
 
 Note the list jobs excluded above. Those are instances of SPORE
 having a memory out that manifests itself in the form of a
 `killDeadlockedJobPair` status in StarExec. The tool then panics and outputs a
 wrong verdict.
 
-## Parity-game
+### Synthesis
+We add `--synthesis` as an option to the script.
+
+## Parity games
 In this case it suffices to use the script as follows
 
 `python3 inforeal.py PGreal file.csv --timeout 1800`
