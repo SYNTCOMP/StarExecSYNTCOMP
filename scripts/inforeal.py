@@ -119,7 +119,8 @@ def genCactus(filename, track, exclude, synthesis, verbose,
                                          getScore(row["Synthesis_total"],
                                                   row["Synthesis_ref"]),
                                          axis=1)
-        print(df.head())
+        if verbose:
+            print(df.head())
 
     # Group them by tool configuration for the rest
     for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
