@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """
-This script generates the cactusplots for some tracks of
-SYNTCOMP, along with rankings and other useful information
+This script generates detailed information for each
+benchmark family
 
-Guillermo A. Perez @ UAntwerp, 2023
+Philipp Schlehuber-Caissier @ EPITA, 2023
 """
 
 import argparse
 import itertools
+import math
+
 import matplotlib.pyplot as plt
 import pandas as pd
-import sys
+import sys, os
+import json
 
 from utils import *
-
 
 partPerTrack = {
     "PGreal": {
@@ -51,14 +53,79 @@ partPerTrack = {
     }
 }
 
+bestDF = dict()
 
-def getScore(syntTotal, syntRef):
-    assert syntTotal >= syntRef
-    return max(0.0, 2.0 - math.log((syntTotal + 1.0) / (syntRef + 1.0), 10))
+def doPlot(df, participants, nInst, synthesis, bound, verbose = False):
+
+    if synthesis:
+        ff, aa = plt.subplots(1, 2, figsize=(9,4))
+        aa0 = aa[0]
+        aa1 = aa[1]
+    else:
+        ff, aa = plt.subplots(1, 1, figsize=(9,4))
+        aa0 = aa
+
+    summary = dict()
+    best = dict()
+
+    # Group them by tool configuration for the rest
+    for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
+
+        tool_name = participants[tool.lower()]
+
+        if verbose:
+            subdf.to_csv(f"{tool_name}.{config}.csv")
+        numbenchs = subdf.shape[0]
+        totTime = subdf[bound].sum() if numbenchs else math.inf
+        # store the summary
+        if not synthesis:
+            summary[(tool_name, config)] = (numbenchs, totTime)
+        else:
+            summary[(tool_name, config)] = (numbenchs, totTime, subdf["Synthesis_score"].sum())
+
+        # store the info of the best configs
+        if (tool_name not in best or numbenchs > best[tool_name][0]
+                or (numbenchs == best[tool_name][0] and
+                    totTime < best[tool_name][1])):
+            best[tool_name] = (numbenchs, totTime, config, subdf)
+        print(f"Tool {tool_name}, Configuration {config} solved " +
+              f"{numbenchs} benchs " +
+              f"in {totTime}s")
+
+    # Show best plot per tool
+    markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
+    for tool, (numbenchs, totTime, config, subdf) in best.items():
+        print(f"The best config of {tool} solved "
+              f"{numbenchs} " +
+              f"in {totTime}s")
+        thisM = next(markers)
+        aa0.plot(subdf.InstIdx, [max(1e-6, v) for v in subdf[bound]],
+                 thisM,
+                 label=f"{tool} {numbenchs} / {nInst}")
+        if synthesis:
+            aa1.plot(subdf.InstIdx, subdf.Synthesis_score,
+                     thisM,
+                     label=f"{tool} {numbenchs} / {nInst}")
 
 
-def genCactus(filename, track, exclude, synthesis, verbose,
-              parallel, timeout):
+    # Show the plot and close everything after
+    if not synthesis:
+        aa0.legend()
+    aa0.set_yscale("log")
+    aa0.set_ylabel(f"{bound} (s)")
+    aa0.set_xlabel("benchmark nbr")
+
+    if synthesis:
+        aa1.legend()
+        aa1.set_ylabel("Q scor")
+        aa1.set_xlabel("benchmark nbr")
+
+    ff.tight_layout()
+
+    return ff, best
+
+def genPlots(filename, families, track, exclude, synthesis, verbose,
+             parallel, timeout, plotType):
     if synthesis:
         print("Checking quality ranking")
     else:
@@ -129,11 +196,7 @@ def genCactus(filename, track, exclude, synthesis, verbose,
             raise RuntimeError(f"Model checking failed but tool/config was not excluded"\
                                f"or other untreated error in  {fail}")
 
-    # Prepare to get information per tool
-    participants = partPerTrack[track]
-    best = {}
-    summary = {}
-
+    # Compute the scores
     # For synthesis, we compute the minimal size in the file per benchmark
     # as well as the total size (for convenience); then we also compute
     # the scores
@@ -151,55 +214,47 @@ def genCactus(filename, track, exclude, synthesis, verbose,
         if verbose:
             print(df.head())
 
-    # Group them by tool configuration for the rest
-    for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
-        assert (tool, config) not in disqualified_solvers, "Table was not properly cleaned"
+    # Prepare to get information per tool
+    participants = partPerTrack[track]
 
-        tool_name = participants[tool.lower()]
+    # Extract and sort for each family, then plot
+    allColumns = ["family", "nInst", "tool", "config", "nSolved", "time"]
+    bestTable = pd.DataFrame(dict(zip(allColumns, [[] for _ in range(len(allColumns))] )))
+    if synthesis:
+        allColumns.append("Qscore")
+        bestTable.insert(bestTable.shape[1], "Qscore", [])
 
-        subdf = subdf.sort_values(by=bound)
-        if verbose:
-            subdf.to_csv(f"{tool_name}.{config}.csv")
-        numbenchs = subdf.shape[0]
-        cumsum = subdf[bound].cumsum()
-        # store the summary
-        if not synthesis:
-            summary[(tool_name, config)] = (numbenchs, cumsum.iloc[-1])
-        else:
-            scoresum = subdf["Synthesis_score"].sum()
-            summary[(tool_name, config)] = (numbenchs, cumsum.iloc[-1], scoresum)
 
-        # store the info of the best configs
-        if (tool_name not in best or numbenchs > best[tool_name][0]
-            or (numbenchs == best[tool_name][0] and
-                cumsum.iloc[-1] < best[tool_name][1].iloc[-1])):
-            best[tool_name] = (numbenchs, cumsum)
-        print(f"Tool {tool_name}, Configuration {config} solved " +
-              f"{numbenchs} benchs " +
-              f"in {cumsum.iloc[-1]}s")
+    for name, inst_list in families.items():
+        def find(val):
+            try:
+                return inst_list.index(val)
+            except:
+                return -1
+        df["InstIdx"] = df.apply(lambda row: find(os.path.basename(row.benchmark)), axis=1)
 
-    # Show best plot per tool
-    markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
-    for tool, (_, cumsum) in best.items():
-        print(f"The best config of {tool} solved "
-              f"{cumsum.shape[0]} " +
-              f"in {cumsum.iloc[-1]}s")
-        plt.plot(range(1, cumsum.shape[0] + 1), cumsum,
-                 label=tool,
-                 marker=next(markers))
+        subdf = df.loc[df.InstIdx >= 0,:]
+        subdf = subdf.sort_values("InstIdx")
 
-    # Show the plot and close everything after
-    plt.legend(loc="lower right")
-    plt.yscale("log")
-    if parallel:
-        plt.ylabel("Total wall-clock time (s)")
-    else:
-        plt.ylabel("Total cpu time (s)")
-    plt.xlabel("No. of solved benchmarks")
+        fig, best = doPlot(subdf, participants, len(inst_list), synthesis, bound)
+
+        fig.savefig(os.path.join("images",
+                                 f"{name.replace('/', '_')}_{parallel}_{synthesis}.{plotType}"))
+
+        for tool, (numbenchs, totTime, config, subdf) in best.items():
+            base = dict(zip(allColumns, len(allColumns)*[0]))
+            base["family"] = name
+            base["nInst"] = len(inst_list)
+            base["tool"] = tool
+            base["config"] = config
+            base["nSolved"] = numbenchs
+            base["time"] = totTime
+            if synthesis:
+                base["Qscore"] = subdf.Synthesis_score.sum()
+            bestTable = bestTable.append(base, ignore_index=True)
+
     plt.show()
-    plt.close()
-
-    return summary
+    return bestTable
 
 
 def printTable(sumSeq, sumPar, synthesis):
@@ -243,32 +298,42 @@ def printTable(sumSeq, sumPar, synthesis):
     print("</tbody></table>")
 
 
+parser = argparse.ArgumentParser(description="Summarize the job "
+                                             "information from "
+                                             "StarExec")
+parser.add_argument("track", type=str,
+                    choices=partPerTrack.keys())
+parser.add_argument("sxdata",
+                    help="Full path to the StarExec "
+                         "job info file")
+parser.add_argument("families", help="Full path to the "\
+                    "json file describing the families.")
+parser.add_argument("--timeout", type=int,
+                    help="Timeout, in seconds, for objective "
+                         "sequential track comparison")
+parser.add_argument("--verbose", action="store_true",
+                    help="Print more information messages "
+                         "and dump intermediate csv files")
+parser.add_argument("--expairs", type=int, nargs='*',
+                    metavar="PID", default=[],
+                    help="pair ids you wish to exclude")
+parser.add_argument("--synthesis", action="store_true",
+                    help="Compute synthesis quality ranking")
+parser.add_argument("-s", "--save", type=str, default="png",
+                    help="File format of generated plots, defaults to png")
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Summarize the job "
-                                                 "information from "
-                                                 "StarExec")
-    parser.add_argument("track", type=str,
-                        choices=partPerTrack.keys())
-    parser.add_argument("sxdata",
-                        help="Full path to the StarExec "
-                             "job info file")
-    parser.add_argument("--timeout", type=int,
-                        help="Timeout, in seconds, for objective "
-                             "sequential track comparison")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Print more information messages "
-                             "and dump intermediate csv files")
-    parser.add_argument("--expairs", type=int, nargs='*',
-                        metavar="PID", default=[],
-                        help="pair ids you wish to exclude")
-    parser.add_argument("--synthesis", action="store_true",
-                        help="Compute synthesis quality ranking")
     args = parser.parse_args()
-    summarySeq = genCactus(args.sxdata, args.track, args.expairs,
+
+    with open(args.families, "r") as fp:
+        families = json.load(fp)
+
+    summarySeq = genPlots(args.sxdata, families, args.track, args.expairs,
                            args.synthesis, args.verbose, False,
-                           args.timeout)
-    summaryPar = genCactus(args.sxdata, args.track, args.expairs,
-                           args.synthesis, args.verbose, True,
-                           args.timeout)
-    printTable(summarySeq, summaryPar, args.synthesis)
+                           args.timeout, args.save)
+    summarySeq.to_html("images/seq.html")
+    #summaryPar = genPlots(args.sxdata, families, args.track, args.expairs,
+    #                       args.synthesis, args.verbose, True,
+    #                       args.timeout, args.save)
+    #printTable(summarySeq, summaryPar, args.synthesis)
     exit(0)
