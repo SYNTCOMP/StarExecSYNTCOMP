@@ -70,12 +70,25 @@ def genCactus(filename, track, exclude, synthesis, verbose,
     # Loading the data in a pandas data frame
     df = pd.read_csv(filename)
 
+    # Remove all entries without a valid output
+    # Manual exclusion comes first, always
+    print(f"Shape of raw input (not counting disqualified):\n{df.shape[0]}")
+    print(f"Excluding {len(exclude)} pair ids")
+    df = df[~df["pair id"].isin(exclude)]
+
     # If synthesis -> Check the MC result before doing anything else
     # We need to know if model check errors (not timeouts, errors as in it violates the spec) happened
     disqualified_solvers = set() # Disqualified solver configurations
     if synthesis:
-        mcerrors = ["MC-INCORRECT", "MC-ERROR"]
+        mcerrors = ["MC-ERROR"] # Unknown problem with model checking
         errors = df.loc[df.Model_check_result.isin(mcerrors) | df.result.isin(mcerrors), :]
+        if errors.size:
+            print("Unknown model checking error occurred -> Check and rerun or exclude the pairs")
+            print(errors.to_csv(), file=sys.stderr)
+            raise RuntimeError("Unknown errors detected: Abort!")
+
+        mcincorrect = ["MC-INCORRECT"] # Provided controller is incorrect
+        errors = df.loc[df.Model_check_result.isin(mcincorrect) | df.result.isin(mcincorrect), :]
         if errors.size:
             initial_jobs = df.shape[0]
             for (tool, config), subdf in errors.groupby([df.solver, df.configuration]):
@@ -86,13 +99,9 @@ def genCactus(filename, track, exclude, synthesis, verbose,
                 df = df[~((df.solver == tool) & (df.configuration == config))]
             print(f"A total of {initial_jobs - df.shape[0]} instances have been removed.", file = sys.stderr)
         else:
-            print("No model checking error detected")
+            print("No model checking problem detected")
 
-    # Remove all entries without a valid output
     bound = "wallclock time" if parallel else "cpu time"
-    print(f"Shape of raw input (not counting disqualified):\n{df.shape[0]}")
-    print(f"Excluding {len(exclude)} pair ids")
-    df = df[~df["pair id"].isin(exclude)]
     possibleRes = ["REALIZABLE", "NEW-REALIZABLE"]
     if not synthesis:
         possibleRes.extend(["UNREALIZABLE", "NEW-UNREALIZABLE"])
@@ -115,8 +124,9 @@ def genCactus(filename, track, exclude, synthesis, verbose,
                 f"{bench} is misclassified by some tool!\n{real}\n{unrl}"
     else:  # for synthesis, check the model-checking result
         fail = df[df["Model_check_result"] != "SUCCESS"]
-        assert fail.shape[0] == 0, f"Model checking failed but tool/config was not excluded"\
-                                   f"or other untreated error in  {fail}"
+        if fail.size:
+            raise RuntimeError(f"Model checking failed but tool/config was not excluded"\
+                               f"or other untreated error in  {fail}")
 
     # Prepare to get information per tool
     participants = partPerTrack[track]

@@ -160,10 +160,12 @@ if [ $res_val -eq 0 ]; then
     if [ $num_false -ge 1 ]; then
         echo "starexec-result=MC-INCORRECT"
         echo "Error=model checker says no!"
+        echo "Model_check_result=MC-INCORRECT"
         exit
     elif [ $num_true -lt $num_justice ]; then
-        echo "starexec-result=MC-ERROR"
+        echo "starexec-result=MC-INCORRECT"
         echo "Error=not all justice properties found"
+        echo "Model_check_result=MC-INCORRECT"
         exit
     else
         echo "Model_check_result=SUCCESS"
@@ -171,9 +173,11 @@ if [ $res_val -eq 0 ]; then
     fi
 elif [ $res_val -eq 124 ] || [ $res_val -eq 137 ]; then
     echo "starexec-result=MC-TIMEOUT"
+    echo "Model_check_result=MC-TIMEOUT"
     exit
 else
     echo "starexec-result=MC-ERROR"
+    echo "Model_check_result=MC-ERROR"
     echo "Error=unknown MC error, returned ${res_val}"
     exit
 fi
