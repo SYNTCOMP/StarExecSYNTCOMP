@@ -32,7 +32,9 @@ partPerTrack = {
         "sdf": "sdf",
         "spore": "SPORE",
         "strix": "Strix",
-        "abonsai": "Acacia bonsai"
+        "abonsai": "Acacia bonsai",
+        "ab23": "A. bonsai 2023",
+        "ab-kdt": "AB with KDTrees",
     },
     "LTLsynt": {
         "abonsai": "Acacia bonsai",
@@ -57,7 +59,7 @@ def getScore(syntTotal, syntRef):
 
 
 def genCactus(filename, track, exclude, synthesis, verbose,
-              parallel, timeout):
+              parallel, timeout, force):
     if synthesis:
         print("Checking quality ranking")
     else:
@@ -70,21 +72,27 @@ def genCactus(filename, track, exclude, synthesis, verbose,
     # Loading the data in a pandas data frame
     df = pd.read_csv(filename)
 
-    # If synthesis -> Check the MC result before doing anything else
-    # We need to know if model check errors (not timeouts, errors as in it violates the spec) happened
-    disqualified_solvers = set() # Disqualified solver configurations
+    # If synthesis -> Check the MC result before doing anything else We need
+    # to know if model check errors (not timeouts, errors as in it violates
+    # the spec) happened
+    disqualified_solvers = set()  # Disqualified solver configurations
     if synthesis:
         mcerrors = ["MC-INCORRECT", "MC-ERROR"]
-        errors = df.loc[df.Model_check_result.isin(mcerrors) | df.result.isin(mcerrors), :]
+        errors = df.loc[df.Model_check_result.isin(mcerrors) |
+                        df.result.isin(mcerrors), :]
         if errors.size:
             initial_jobs = df.shape[0]
-            for (tool, config), subdf in errors.groupby([df.solver, df.configuration]):
+            for (tool, config), subdf in errors.groupby([df.solver,
+                                                         df.configuration]):
                 disqualified_solvers.add((tool, config))
-                print(f"The tool {tool} in configuration {config} failed on instances\n {'; '.join(list(subdf.benchmark))}", file=sys.stderr)
+                print(f"The tool {tool} in configuration {config} failed "
+                      f"on instances\n {'; '.join(list(subdf.benchmark))}",
+                      file=sys.stderr)
             # Exclude the corresponding data
             for (tool, config) in disqualified_solvers:
                 df = df[~((df.solver == tool) & (df.configuration == config))]
-            print(f"A total of {initial_jobs - df.shape[0]} instances have been removed.", file = sys.stderr)
+            print(f"A total of {initial_jobs - df.shape[0]} "
+                  "instances have been removed.", file=sys.stderr)
         else:
             print("No model checking error detected")
 
@@ -100,23 +108,34 @@ def genCactus(filename, track, exclude, synthesis, verbose,
     df = df[~df.status.isin(["timeout (cpu)", "timeout (wallclock)"])]
     if timeout is not None:
         df = df[df[bound] <= timeout]
-    print(f"Shape after removing invalid output status and timeouts:\n{df.shape[0]}")
+    print("Shape after removing invalid output "
+          f"status and timeouts:\n{df.shape[0]}")
 
     # Checking for misclassifications
     # this only makes sense if there can be mismatching
     # classes (so not for synthesis)
     if not synthesis:
+        misclassed = []
         for bench, subdf in df.groupby(df.benchmark):
             real = subdf[subdf.result.isin(["REALIZABLE",
                                             "NEW-REALIZABLE"])]
             unrl = subdf[subdf.result.isin(["UNREALIZABLE",
                                             "NEW-UNREALIZABLE"])]
-            assert real.shape[0] == 0 or unrl.shape[0] == 0,\
-                f"{bench} is misclassified by some tool!\n{real}\n{unrl}"
+            if not (real.shape[0] == 0 or unrl.shape[0] == 0):
+                print(f"{bench} is misclassified by some "
+                      f"tool!\n{real}\n{unrl}")
+                misclassed.append(bench)
+                if not force:
+                    exit(1)
+        # If force is True, we could have misclassifications, let's remove
+        # them to be fair
+        df = df[~df.benchmark.isin(misclassed)]
+
     else:  # for synthesis, check the model-checking result
         fail = df[df["Model_check_result"] != "SUCCESS"]
-        assert fail.shape[0] == 0, f"Model checking failed but tool/config was not excluded"\
-                                   f"or other untreated error in  {fail}"
+        assert fail.shape[0] == 0, "Model checking failed but tool/config "\
+                                   "was not excluded "\
+                                   f"or other untreated error in {fail}"
 
     # Prepare to get information per tool
     participants = partPerTrack[track]
@@ -142,7 +161,8 @@ def genCactus(filename, track, exclude, synthesis, verbose,
 
     # Group them by tool configuration for the rest
     for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
-        assert (tool, config) not in disqualified_solvers, "Table was not properly cleaned"
+        assert (tool, config) not in disqualified_solvers,\
+                "Table was not properly cleaned"
 
         tool_name = participants[tool.lower()]
 
@@ -156,7 +176,9 @@ def genCactus(filename, track, exclude, synthesis, verbose,
             summary[(tool_name, config)] = (numbenchs, cumsum.iloc[-1])
         else:
             scoresum = subdf["Synthesis_score"].sum()
-            summary[(tool_name, config)] = (numbenchs, cumsum.iloc[-1], scoresum)
+            summary[(tool_name, config)] = (numbenchs,
+                                            cumsum.iloc[-1],
+                                            scoresum)
 
         # store the info of the best configs
         if (tool_name not in best or numbenchs > best[tool_name][0]
@@ -241,6 +263,9 @@ if __name__ == "__main__":
     parser.add_argument("sxdata",
                         help="Full path to the StarExec "
                              "job info file")
+    parser.add_argument("--force", action="store_true",
+                        help="Ignore misclassifications and "
+                             "force output")
     parser.add_argument("--timeout", type=int,
                         help="Timeout, in seconds, for objective "
                              "sequential track comparison")
@@ -255,9 +280,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     summarySeq = genCactus(args.sxdata, args.track, args.expairs,
                            args.synthesis, args.verbose, False,
-                           args.timeout)
+                           args.timeout, args.force)
     summaryPar = genCactus(args.sxdata, args.track, args.expairs,
                            args.synthesis, args.verbose, True,
-                           args.timeout)
+                           args.timeout, args.force)
     printTable(summarySeq, summaryPar, args.synthesis)
     exit(0)
