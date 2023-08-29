@@ -58,8 +58,8 @@ def getScore(syntTotal, syntRef):
     return max(0.0, 2.0 - math.log((syntTotal + 1.0) / (syntRef + 1.0), 10))
 
 
-def genCactus(filename, track, exclude, synthesis, verbose,
-              parallel, timeout, force):
+def genPlots(filename, track, exclude, synthesis, verbose,
+             parallel, timeout, force, scatter):
     if synthesis:
         print("Checking quality ranking")
     else:
@@ -68,6 +68,9 @@ def genCactus(filename, track, exclude, synthesis, verbose,
             print("Using time bounds for PARALLEL tracks")
         else:
             print("Using time bounds for SEQUENTIAL tracks")
+
+    markers = itertools.cycle(('h', '+', '.', 'o', '*',
+                               'D', 's', '^', '2', '|'))
 
     # Loading the data in a pandas data frame
     df = pd.read_csv(filename)
@@ -137,11 +140,6 @@ def genCactus(filename, track, exclude, synthesis, verbose,
                                    "was not excluded "\
                                    f"or other untreated error in {fail}"
 
-    # Prepare to get information per tool
-    participants = partPerTrack[track]
-    best = {}
-    summary = {}
-
     # For synthesis, we compute the minimal size in the file per benchmark
     # as well as the total size (for convenience); then we also compute
     # the scores
@@ -159,7 +157,12 @@ def genCactus(filename, track, exclude, synthesis, verbose,
         if verbose:
             print(df.head())
 
-    # Group them by tool configuration for the rest
+    # Prepare to get information per tool
+    participants = partPerTrack[track]
+    best = {}
+    summary = {}
+
+    # Group them by tool configuration now to find a best config per tool
     for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
         assert (tool, config) not in disqualified_solvers,\
                 "Table was not properly cleaned"
@@ -189,8 +192,7 @@ def genCactus(filename, track, exclude, synthesis, verbose,
               f"{numbenchs} benchs " +
               f"in {cumsum.iloc[-1]}s")
 
-    # Show best plot per tool
-    markers = itertools.cycle(('h', '+', '.', 'o', '*', 'D', 's'))
+    # Show best cactus plot per tool
     for tool, (_, cumsum) in best.items():
         print(f"The best config of {tool} solved "
               f"{cumsum.shape[0]} " +
@@ -209,6 +211,41 @@ def genCactus(filename, track, exclude, synthesis, verbose,
     plt.xlabel("No. of solved benchmarks")
     plt.show()
     plt.close()
+
+    # If needed, create a scatter plot (this does not discriminate tools)
+    if len(scatter) > 0:
+        allconfs = list(map(lambda x: tuple(x.split(':')), scatter))
+        (basetool, baseconfig) = allconfs[0]
+        baseline = df[(df.solver == basetool) &
+                      (df.configuration == baseconfig)]
+        print("Preparing scatter plot")
+        for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
+            if (tool, config) not in allconfs:
+                continue
+
+            values = subdf.merge(baseline, left_on="benchmark",
+                                 right_on="benchmark")
+            if verbose:
+                values["diff_time"] = values.apply(lambda row:
+                                                   row[bound + "_x"] -
+                                                   row[bound + "_y"],
+                                                   axis=1)
+                values = values.sort_values(by="diff_time")
+                values.to_csv(f"{tool}:{config}-{parallel}.csv")
+            base = values[bound + "_y"]
+            values = values[bound + "_x"]
+            plt.scatter(base, values,
+                        label=f"{tool}:{config}",
+                        marker=next(markers))
+        # Show the plot and close everything after
+        plt.legend(loc="lower right")
+        if parallel:
+            plt.ylabel("Total wall-clock time (s)")
+        else:
+            plt.ylabel("Total cpu time (s)")
+        plt.xlabel(f"Baseline {scatter[0]}")
+        plt.show()
+        plt.close()
 
     return summary
 
@@ -275,14 +312,20 @@ if __name__ == "__main__":
     parser.add_argument("--expairs", type=int, nargs='*',
                         metavar="PID", default=[],
                         help="pair ids you wish to exclude")
+    parser.add_argument("--scatter", type=str, nargs='*',
+                        metavar="CONF", default=[],
+                        help="Generate a scatter plot for "
+                             "the given tool:config comma "
+                             "separated pairs (first one "
+                             "is taken as baseline)")
     parser.add_argument("--synthesis", action="store_true",
                         help="Compute synthesis quality ranking")
     args = parser.parse_args()
-    summarySeq = genCactus(args.sxdata, args.track, args.expairs,
-                           args.synthesis, args.verbose, False,
-                           args.timeout, args.force)
-    summaryPar = genCactus(args.sxdata, args.track, args.expairs,
-                           args.synthesis, args.verbose, True,
-                           args.timeout, args.force)
+    summarySeq = genPlots(args.sxdata, args.track, args.expairs,
+                          args.synthesis, args.verbose, False,
+                          args.timeout, args.force, args.scatter)
+    summaryPar = genPlots(args.sxdata, args.track, args.expairs,
+                          args.synthesis, args.verbose, True,
+                          args.timeout, args.force, args.scatter)
     printTable(summarySeq, summaryPar, args.synthesis)
     exit(0)
