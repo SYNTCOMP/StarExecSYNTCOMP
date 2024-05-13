@@ -1,0 +1,69 @@
+% Preamble
+\documentclass[11pt]{article}
+
+% Packages
+\usepackage{amsmath, amssymb}
+\usepackage[numbers]{natbib}
+
+
+% Document
+\begin{document}
+
+\section{LTLf with terminating semantics}
+
+In this interpretation of LTLf, the controller may dictate when a run ends.
+This stands in contrast to the former semantics which stated that for a controller
+to correctly implement a specification, it has to generate a finite accepting
+prefix for each possible input word.
+
+In this new semantics this changes. The controller decides when the word produced
+so far verifies the specification and may terminate the sequence at this point.
+
+To implement and model check this, we propose the following.
+
+Each problem is not only described by its LTLf formula but an additional
+\textit{extra} atomic proposition (AP), which is obviously not present in
+the formula, is given.
+We call this special AP terminating signal.
+
+This terminating signal is counted as an output signal and must appear
+in the aiger circuit as such.
+This terminating signal remains false until a word in the specification
+is constructed.
+Once it is set to True the current word is terminated, it has therefore
+to be accepting and further evaluation of the controller
+is undefined behaviour.
+
+That is for every (infinite) sequence $\mathbf{i}$ over the inputs the
+controller has to construct sequence $\mathbf{o}$ over the
+outputs and the terminating signal $t$ such that there exists a finite
+index $k$ with $\forall j < k\colon\ \mathbf{o}_{j} \implies \bar{t}$,
+$\mathbf{o}_{k} \implies \bar{t}$ and $\mathbf{i}_{<k}\times\mathbf{o}_{<k}$
+verifies the specification.
+
+\subsubsection*{Tool}
+
+The model checking is implemented by the executable called
+\textit{ltlfcheck} (system wide installed in the provided docker).
+It takes the negation of the specification as a non-deterministic
+finite automaton (represented by a state-based büchi automaton in
+the hoa format), the controller in the form of an aig-circuit
+implementing the specification (as aag file) and finally the name
+of the terminating AP.
+It then performs symbolic model checking to validate the controller.
+
+Helper functions are implemented via the python script
+\textit{ltlf\_fun.py} \\
+(/home/ltlfcheck/ltlf\_fun.py), which can be used to
+generate controller / negated specification pairs (via some basic,
+spot based implementation) or model check these pairs, depending on the arguments.
+All actions can be performed batch wise with timeouts.
+
+
+Generating tests:\\
+cd /home/ltlfcheck \&\& mkdir instances\_new \&\& spotrun ltlf\_fun.py generate specifications instances\_new  \\[6pt]
+
+Model check the newly generated pairs\\
+cd /home/ltlfcheck \&\& spotrun ltlf\_fun.py modelcheck instances\_new new\_log.txt
+
+\end{document}
