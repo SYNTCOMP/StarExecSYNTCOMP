@@ -16,9 +16,9 @@ import sys
 
 partPerTrack = {
     "PGreal": {
-        "strix pgame": "Strix",
-        "knor repair": "Knor",
-        "ltlsynt": "ltlsynt"
+        "strix pgame-real": "Strix",
+        "ltlsynt24": "ltlsynt",
+        "knor": "Knor"
     },
     "PGsynt": {
         "strix pgame": "Strix",
@@ -26,15 +26,14 @@ partPerTrack = {
         "ltlsynt": "ltlsynt"
     },
     "LTLreal": {
-        "strix pgame": "Strix",
-        "ltlsynt23": "ltlsynt",
+        "ltlsynt24": "ltlsynt",
         "Otus": "Otus",
         "sdf": "sdf",
         "spore": "SPORE",
         "strix": "Strix",
-        "abonsai": "Acacia bonsai",
-        "ab23": "A. bonsai 2023",
-        "ab-kdt": "AB with KDTrees",
+        "semml": "SemML",
+        "abonsai24v3": "A.bonsai (k-d trees)",
+        "abonsai23": "Acacia bonsai",
     },
     "LTLsynt": {
         "abonsai": "Acacia bonsai",
@@ -164,7 +163,7 @@ def genPlots(filename, track, exclude, synthesis, verbose,
 
     # Group them by tool configuration now to find a best config per tool
     for (tool, config), subdf in df.groupby([df.solver, df.configuration]):
-        assert (tool, config) not in disqualified_solvers,\
+        assert (tool, config) not in disqualified_solvers, \
                 "Table was not properly cleaned"
 
         tool_name = participants[tool.lower()]
